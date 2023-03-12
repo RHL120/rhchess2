@@ -416,9 +416,9 @@ impl Parser {
             TokenKind::Square => {
                 let mut square = tok.lexme.chars();
                 let file = (square.next().unwrap() as u8) - 97;
-                let rank = square.next().unwrap().to_digit(10).unwrap() - 1;
+                let rank = (square.next().unwrap().to_digit(10).unwrap() - 1) as u8;
                 self.cursor += 1;
-                Ok(Some(board::Square(rank as u8, file)))
+                Ok(Some(board::Square { rank, file }))
             }
             _ => Err(ParserError::Unexpected(tok.clone(), expected)),
         }
