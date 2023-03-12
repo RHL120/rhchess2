@@ -174,17 +174,22 @@ impl Lexer {
             cursor: 0,
         }
     }
+    fn piece_or_color(&mut self) -> Option<Token> {
+        if self.cursor > 0 && self.string.get(self.cursor - 1)?.is_whitespace() {
+            self.color().or_else(|| self.piece())
+        } else {
+            self.piece().or_else(|| self.color())
+        }
+    }
     fn run(&mut self) -> Option<Vec<Rc<Token>>> {
         let mut ret = Vec::new();
         while self.cursor < self.string.len() {
             let tok = self
-                .piece()
-                .or_else(|| self.slash())
+                .slash()
                 .or_else(|| self.number())
-                .or_else(|| self.color())
-                .or_else(|| self.piece())
                 .or_else(|| self.square())
                 .or_else(|| self.dash())
+                .or_else(|| self.piece_or_color())
                 .or_else(|| self.whitespace())?;
             ret.push(Rc::new(tok));
         }
@@ -564,4 +569,27 @@ pub fn board_to_fen(b: board::Board) -> String {
     ret.push(' ');
     ret.push_str(&b.full_moves.to_string());
     ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test() {
+        let s = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq e3 0 1";
+        let p = parse(s).unwrap();
+        assert_eq!(board_to_fen(p), s);
+        let s = "rnbqkbnr/1pp1p1pp/8/p2pPp2/3P4/8/PPP2PPP/RNBQKBNR w KQkq f6 0 4";
+        let p = parse(s).unwrap();
+        assert_eq!(board_to_fen(p), s);
+        let s = "rnbq1rk1/1pp1n1pp/5p2/p7/1bpP4/5P2/PPPBN1PP/RN1Q1RK1 b - - 1 9";
+        let p = parse(s).unwrap();
+        assert_eq!(board_to_fen(p), s);
+        let s = "rnbqkbnr/pppp2pp/4p3/8/2BP4/5p2/PPP2PPP/RNBQ1RK1 b kq - 1 5";
+        let p = parse(s).unwrap();
+        assert_eq!(board_to_fen(p), s);
+        let s = "rnbqk1r1/pppp3p/3bpnp1/8/2BP4/5P1K/PPP2P1P/RNBQ1R2 w q - 4 9";
+        let p = parse(s).unwrap();
+        assert_eq!(board_to_fen(p), s);
+    }
 }
