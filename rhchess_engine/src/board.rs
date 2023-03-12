@@ -1,5 +1,5 @@
 /// The kind of a chess peice
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceKind {
     Pawn,
     Rook,
@@ -10,19 +10,20 @@ pub enum PieceKind {
 }
 
 /// The 2 possible players
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Player {
     White,
     Black,
 }
 
 /// The piece itself
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Piece {
     pub kind: PieceKind,
     pub owner: Player,
 }
 
+#[derive(Clone, Copy)]
 pub struct Square {
     pub rank: u8,
     pub file: u8,
@@ -32,6 +33,18 @@ impl Square {
     pub fn new(file: u8, rank: u8) -> Option<Square> {
         if file < 8 && rank < 8 {
             Some(Square { file, rank })
+        } else {
+            None
+        }
+    }
+    pub fn translate(self, file: i32, rank: i32) -> Option<Square> {
+        let file = self.file as i32 - file;
+        let rank = self.rank as i32 - rank;
+        if file < 8 && rank < 8 {
+            Some(Square {
+                rank: rank.try_into().ok()?,
+                file: file.try_into().ok()?,
+            })
         } else {
             None
         }
@@ -83,5 +96,8 @@ impl Board {
         Ok(match kind {
             BoardStringKind::Fen => crate::fen::parse(s)?,
         })
+    }
+    pub fn get_piece<'a>(&'a self, s: Square) -> &'a Option<Piece> {
+        &self.positions[(s.rank * 8 + s.file) as usize]
     }
 }
