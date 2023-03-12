@@ -38,7 +38,7 @@ impl Square {
 impl std::fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         let ranks = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-        write!(f, "{}{}", ranks[self.0 as usize], self.1 + 1)
+        write!(f, "{}{}", ranks[self.1 as usize], self.0 + 1)
     }
 }
 

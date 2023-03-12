@@ -537,7 +537,7 @@ pub fn board_to_fen(b: board::Board) -> String {
     });
     ret.push(' ');
     let (white_queen, white_king, black_queen, black_king) = b.castling_rights;
-    if !white_queen | !white_king | !black_queen | !black_king {
+    if !white_queen && !white_king && !black_queen && !black_king {
         ret.push('-');
     } else {
         if white_king {
