@@ -492,3 +492,76 @@ pub fn parse(string: &str) -> Result<board::Board, Error> {
     let mut parser = Parser::new(toks);
     Ok(parser.run()?)
 }
+
+fn piece_to_fen(piece: board::Piece) -> char {
+    let p = match piece.kind {
+        board::PieceKind::Pawn => 'p',
+        board::PieceKind::Rook => 'r',
+        board::PieceKind::Knight => 'n',
+        board::PieceKind::Bishop => 'b',
+        board::PieceKind::Queen => 'q',
+        board::PieceKind::King => 'k',
+    };
+    match piece.owner {
+        board::Player::White => p.to_ascii_uppercase(),
+        board::Player::Black => p,
+    }
+}
+
+pub fn board_to_fen(b: board::Board) -> String {
+    let mut ret = String::new();
+    for rank in (0..8).rev() {
+        let mut nonec = 0;
+        if rank != 7 {
+            ret.push('/');
+        }
+        for file in 0..8 {
+            if let Some(piece) = b.positions[rank * 8 + file] {
+                if nonec != 0 {
+                    ret.push_str(&nonec.to_string());
+                    nonec = 0;
+                }
+                ret.push(piece_to_fen(piece));
+            } else {
+                nonec += 1;
+            }
+        }
+        if nonec != 0 {
+            ret.push_str(&nonec.to_string());
+        }
+    }
+    ret.push(' ');
+    ret.push(match b.turn {
+        board::Player::White => 'w',
+        board::Player::Black => 'b',
+    });
+    ret.push(' ');
+    let (white_queen, white_king, black_queen, black_king) = b.castling_rights;
+    if !white_queen | !white_king | !black_queen | !black_king {
+        ret.push('-');
+    } else {
+        if white_king {
+            ret.push('K');
+        }
+        if white_queen {
+            ret.push('Q');
+        }
+        if black_king {
+            ret.push('k');
+        }
+        if black_queen {
+            ret.push('q');
+        }
+    }
+    ret.push(' ');
+    if let Some(square) = b.en_passent {
+        ret.push_str(&square.to_string());
+    } else {
+        ret.push('-');
+    }
+    ret.push(' ');
+    ret.push_str(&b.reversible_moves.to_string());
+    ret.push(' ');
+    ret.push_str(&b.full_moves.to_string());
+    ret
+}
