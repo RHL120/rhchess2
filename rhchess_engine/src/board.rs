@@ -1,5 +1,6 @@
+use crate::moves;
 /// The kind of a chess peice
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceKind {
     Pawn,
     Rook,
@@ -10,20 +11,20 @@ pub enum PieceKind {
 }
 
 /// The 2 possible players
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Player {
     White,
     Black,
 }
 
 /// The piece itself
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Piece {
     pub kind: PieceKind,
     pub owner: Player,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Square {
     pub rank: u8,
     pub file: u8,
@@ -33,6 +34,16 @@ impl Square {
     pub fn new(file: u8, rank: u8) -> Option<Square> {
         if file < 8 && rank < 8 {
             Some(Square { file, rank })
+        } else {
+            None
+        }
+    }
+    pub fn from_idx(idx: u8) -> Option<Square> {
+        if idx < 64 {
+            Some(Square {
+                rank: idx / 8,
+                file: idx % 8,
+            })
         } else {
             None
         }
@@ -92,12 +103,62 @@ pub enum Error {
 }
 
 impl Board {
-    pub fn new(s: &str, kind: &BoardStringKind) -> Result<Self, Error> {
+    pub fn new(s: &str, kind: BoardStringKind) -> Result<Self, Error> {
         Ok(match kind {
             BoardStringKind::Fen => crate::fen::parse(s)?,
         })
     }
-    pub fn get_piece<'a>(&'a self, s: Square) -> &'a Option<Piece> {
-        &self.positions[(s.rank * 8 + s.file) as usize]
+    pub fn get_piece(&self, s: Square) -> Option<Piece> {
+        self.positions[(s.rank * 8 + s.file) as usize]
+    }
+    pub fn make_move(&mut self, m: moves::Move) {
+        match m {
+            moves::Move::Move(_, dst, src) => {
+                self.positions[(dst.rank * 8 + dst.file) as usize] =
+                    self.positions[(src.rank * 8 + src.file) as usize];
+                self.positions[(src.rank * 8 + src.file) as usize] = None;
+            }
+            _ => todo!(),
+        }
+    }
+    pub fn switch_player(&mut self) {
+        self.turn = match self.turn {
+            Player::White => Player::Black,
+            Player::Black => Player::White,
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test() {
+        let x = Board::new(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
+            BoardStringKind::Fen,
+        )
+        .unwrap();
+        assert_eq!(
+            x.get_piece(Square::new(0, 0).unwrap()).unwrap(),
+            Piece {
+                kind: PieceKind::Rook,
+                owner: Player::White
+            }
+        );
+        assert_eq!(
+            x.get_piece(Square::new(7, 7).unwrap()).unwrap(),
+            Piece {
+                kind: PieceKind::Rook,
+                owner: Player::Black
+            }
+        );
+        assert_eq!(
+            x.get_piece(Square::new(3, 1).unwrap()).unwrap(),
+            Piece {
+                kind: PieceKind::Pawn,
+                owner: Player::White
+            }
+        );
     }
 }

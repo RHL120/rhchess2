@@ -1,2 +1,2 @@
 [workspace]
-members = ['rhchess_engine']
+members = ['rhchess_engine', 'rhchess_web']

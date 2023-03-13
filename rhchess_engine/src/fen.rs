@@ -186,10 +186,10 @@ impl Lexer {
         while self.cursor < self.string.len() {
             let tok = self
                 .slash()
+                .or_else(|| self.piece_or_color())
                 .or_else(|| self.number())
                 .or_else(|| self.square())
                 .or_else(|| self.dash())
-                .or_else(|| self.piece_or_color())
                 .or_else(|| self.whitespace())?;
             ret.push(Rc::new(tok));
         }

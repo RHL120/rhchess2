@@ -1,0 +1,29 @@
+#board {
+	display: grid;
+	background-color: green;
+	height: min(100vw, 100vh);
+	width: min(100vw, 100vh);
+	grid-template-columns: repeat(8, 1fr);
+	grid-template-rows: repeat(8, 1fr);
+}
+
+* {
+	margin: 0;
+	padding:0;
+}
+main {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100vh;
+}
+
+.square {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.square--image {
+	width: 100%;
+}

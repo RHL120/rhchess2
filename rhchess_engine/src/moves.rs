@@ -1,8 +1,8 @@
+use crate::board;
 use crate::board::Board;
-use crate::board::Player;
 use crate::board::Square;
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub enum Move {
     /// Castle(king_size)
     Castle(bool),
@@ -19,7 +19,7 @@ fn knight(board: &Board, src: Square) -> Vec<Move> {
             .and_then(|x| Square::new(src.file + 1, x)),
         src.rank
             .checked_sub(1)
-            .and_then(|x| Square::new(src.file + 3, x)),
+            .and_then(|x| Square::new(src.file + 2, x)),
         Square::new(src.file + 2, src.rank + 1),
         Square::new(src.file + 1, src.rank + 2),
         src.file
@@ -38,12 +38,16 @@ fn knight(board: &Board, src: Square) -> Vec<Move> {
     .iter()
     .filter_map(|&x| {
         let x = x?;
-        if let Some(piece) = board.get_piece(x) {
-            if piece.owner != board.turn {
-                return Some(Move::Move(false, x, src));
+        match board.get_piece(x) {
+            Some(piece) => {
+                if piece.owner != board.turn {
+                    Some(Move::Move(false, x, src))
+                } else {
+                    None
+                }
             }
+            None => Some(Move::Move(true, x, src)),
         }
-        Some(Move::Move(true, x, src))
     })
     .collect()
 }
@@ -69,20 +73,20 @@ fn to_moves(board: &Board, src: Square, line: impl Iterator<Item = Option<Square
 
 fn bishop(board: &Board, src: Square) -> Vec<Move> {
     [
-        to_moves(board, src, (0..7).map(|x| src.translate(-x, -x))),
-        to_moves(board, src, (0..7).map(|x| src.translate(-x, x))),
-        to_moves(board, src, (0..7).map(|x| src.translate(x, -x))),
-        to_moves(board, src, (0..7).map(|x| src.translate(x, x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(-x, -x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(-x, x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(x, -x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(x, x))),
     ]
     .concat()
 }
 
 fn rook(board: &Board, src: Square) -> Vec<Move> {
     [
-        to_moves(board, src, (0..7).map(|x| src.translate(x, 0))),
-        to_moves(board, src, (0..7).map(|x| src.translate(0, x))),
-        to_moves(board, src, (0..7).map(|x| src.translate(-x, 0))),
-        to_moves(board, src, (0..7).map(|x| src.translate(0, -x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(x, 0))),
+        to_moves(board, src, (1..8).map(|x| src.translate(0, x))),
+        to_moves(board, src, (1..8).map(|x| src.translate(-x, 0))),
+        to_moves(board, src, (1..8).map(|x| src.translate(0, -x))),
     ]
     .concat()
 }
@@ -91,4 +95,14 @@ fn queen(board: &Board, src: Square) -> Vec<Move> {
     let mut b = bishop(board, src);
     b.append(&mut rook(board, src));
     b
+}
+
+pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {
+    match board.get_piece(src).as_ref()?.kind {
+        board::PieceKind::Knight => Some(knight(board, src)),
+        board::PieceKind::Bishop => Some(bishop(board, src)),
+        board::PieceKind::Rook => Some(rook(board, src)),
+        board::PieceKind::Queen => Some(queen(board, src)),
+        _ => None,
+    }
 }
