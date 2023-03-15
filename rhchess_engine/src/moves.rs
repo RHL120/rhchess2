@@ -98,24 +98,41 @@ fn queen(board: &Board, src: Square) -> Vec<Move> {
 }
 
 fn pawn(board: &Board, src: Square) -> Vec<Move> {
-    let s = match board.turn {
-        board::Player::White => {
-            let normals = if src.rank == 1 {
-                vec![src.translate(0, 1), src.translate(0, 2)]
-            } else {
-                vec![src.translate(0, 1)]
-            };
-            normals
-        }
-        board::Player::Black => {
-            if src.rank == 6 {
-                vec![src.translate(0, -1), src.translate(0, -2)]
-            } else {
-                vec![src.translate(0, -1)]
-            }
+    let (init_rank, rank_multiple) = match board.turn {
+        board::Player::White => (1, 1),
+        board::Player::Black => (6, -1),
+    };
+    let to_move = |&sqr| {
+        let sqr = sqr?;
+        if board.get_piece(sqr).is_none() {
+            Some(Move::Move(false, sqr, src))
+        } else {
+            None
         }
     };
-    to_moves(board, src, s.iter().map(|x| *x))
+    let mut moves: Vec<Move> = if src.rank == init_rank {
+        [
+            src.translate(0, rank_multiple),
+            src.translate(0, 2 * rank_multiple),
+        ]
+        .iter()
+        .map_while(to_move)
+        .collect()
+    } else {
+        [src.translate(0, rank_multiple)]
+            .iter()
+            .map_while(to_move)
+            .collect()
+    };
+    let mut captures = [-1, 1]
+        .iter()
+        .filter_map(|&dir| {
+            let sqr = src.translate(dir, rank_multiple)?;
+            board.get_piece(sqr).map(|_| Move::Move(false, sqr, src))
+        })
+        .collect();
+    moves.append(&mut captures);
+    moves
 }
 
 fn king(board: &Board, src: Square) -> Vec<Move> {
