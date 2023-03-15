@@ -92,22 +92,7 @@ pub struct Board {
     pub full_moves: u16,
 }
 
-pub enum BoardStringKind {
-    Fen,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("fen error: {0}")]
-    FenError(#[from] crate::fen::Error),
-}
-
 impl Board {
-    pub fn new(s: &str, kind: BoardStringKind) -> Result<Self, Error> {
-        Ok(match kind {
-            BoardStringKind::Fen => crate::fen::parse(s)?,
-        })
-    }
     pub fn get_piece(&self, s: Square) -> Option<Piece> {
         self.positions[(s.rank * 8 + s.file) as usize]
     }
@@ -129,36 +114,179 @@ impl Board {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn test() {
-        let x = Board::new(
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1",
-            BoardStringKind::Fen,
-        )
-        .unwrap();
-        assert_eq!(
-            x.get_piece(Square::new(0, 0).unwrap()).unwrap(),
-            Piece {
-                kind: PieceKind::Rook,
-                owner: Player::White
-            }
-        );
-        assert_eq!(
-            x.get_piece(Square::new(7, 7).unwrap()).unwrap(),
-            Piece {
-                kind: PieceKind::Rook,
-                owner: Player::Black
-            }
-        );
-        assert_eq!(
-            x.get_piece(Square::new(3, 1).unwrap()).unwrap(),
-            Piece {
-                kind: PieceKind::Pawn,
-                owner: Player::White
-            }
-        );
+impl Default for Board {
+    fn default() -> Self {
+        use PieceKind::*;
+        use Player::*;
+        let mut positions: [Option<Piece>; 64] = [
+            Some(Piece {
+                kind: Rook,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Knight,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Bishop,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Queen,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: King,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Bishop,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Knight,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Rook,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: White,
+            }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Pawn,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Rook,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Knight,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Bishop,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Queen,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: King,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Bishop,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Knight,
+                owner: Black,
+            }),
+            Some(Piece {
+                kind: Rook,
+                owner: Black,
+            }),
+        ];
+        Self {
+            positions,
+            turn: White,
+            castling_rights: (true, true, true, true),
+            en_passent: None,
+            reversible_moves: 0,
+            full_moves: 1,
+        }
     }
 }

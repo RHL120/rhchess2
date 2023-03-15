@@ -23,16 +23,6 @@ pub struct Props {
 
 #[function_component]
 pub fn Square(props: &Props) -> Html {
-    /*
-    let color = match props.status {
-        Status::Targeted => "red",
-        Status::Selected => "green",
-        Status::Unselected => match props.color {
-            Color::Light => "#F0D9B5ff",
-            Color::Dark => "#B48963ff",
-        },
-    };
-    */
     let mut color = match props.color {
         Color::Light => (210, 180, 145),
         Color::Dark => (157, 111, 75),

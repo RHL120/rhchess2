@@ -97,12 +97,34 @@ fn queen(board: &Board, src: Square) -> Vec<Move> {
     b
 }
 
+fn pawn(board: &Board, src: Square) -> Vec<Move> {
+    let mut s = match board.turn {
+        board::Player::White => {
+            let normals = if src.rank == 1 {
+                vec![src.translate(0, -1), src.translate(0, -2)]
+            } else {
+                vec![src.translate(-0, -1)]
+            };
+            normals
+        }
+        board::Player::Black => {
+            if src.rank == 6 {
+                vec![src.translate(-0, 1), src.translate(0, 2)]
+            } else {
+                vec![src.translate(0, 1)]
+            }
+        }
+    };
+    to_moves(board, src, s.iter().map(|x| *x))
+}
+
 pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {
     match board.get_piece(src).as_ref()?.kind {
         board::PieceKind::Knight => Some(knight(board, src)),
         board::PieceKind::Bishop => Some(bishop(board, src)),
         board::PieceKind::Rook => Some(rook(board, src)),
         board::PieceKind::Queen => Some(queen(board, src)),
+        board::PieceKind::Pawn => Some(pawn(board, src)),
         _ => None,
     }
 }

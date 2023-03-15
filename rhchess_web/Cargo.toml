@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+log = "0.4.17"
 rhchess_engine = { version = "0.1.0", path = "../rhchess_engine" }
+wasm-logger = "0.2.0"
 yew = { version = "0.20.0", features = ["csr"] }
 

@@ -9,23 +9,15 @@ use yew::prelude::*;
 pub fn Board() -> Html {
     let selected = use_state::<Option<board::Square>, _>(|| None);
     let targets = use_state::<Vec<moves::Move>, _>(|| Vec::new());
-    let ref_board = use_state(|| {
-        Arc::new(Mutex::new(
-            board::Board::new(
-                "rnbqkbnr/8/8/8/8/8/8/RNBQKBNR w KQkq - 0 1",
-                board::BoardStringKind::Fen,
-            )
-            .unwrap(),
-        ))
-    });
-    html! {
+    let ref_board = use_state(|| Arc::new(Mutex::new(board::Board::default())));
+    let ret = html! {
         <div id="board">
             {
                 (0..64).map(|idx| {
                     let board = ref_board.clone();
-                    let square = board::Square::from_idx(63 - idx).unwrap();
+                    let square = board::Square::new(idx % 8, 7 - (idx / 8)).unwrap();
                     let piece = board.lock().unwrap().get_piece(square);
-                    let color = if  (idx % 8 + idx / 8) % 2 == 0 {
+                    let color = if  (idx % 8 + idx / 8) % 2 != 0 {
                         square::Color::Light
                     } else {
                         square::Color::Dark
@@ -77,5 +69,6 @@ pub fn Board() -> Html {
                 .collect::<Html>()
             }
         </div>
-    }
+    };
+    ret
 }
