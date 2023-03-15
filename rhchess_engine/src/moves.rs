@@ -98,24 +98,53 @@ fn queen(board: &Board, src: Square) -> Vec<Move> {
 }
 
 fn pawn(board: &Board, src: Square) -> Vec<Move> {
-    let mut s = match board.turn {
+    let s = match board.turn {
         board::Player::White => {
             let normals = if src.rank == 1 {
-                vec![src.translate(0, -1), src.translate(0, -2)]
+                vec![src.translate(0, 1), src.translate(0, 2)]
             } else {
-                vec![src.translate(-0, -1)]
+                vec![src.translate(0, 1)]
             };
             normals
         }
         board::Player::Black => {
             if src.rank == 6 {
-                vec![src.translate(-0, 1), src.translate(0, 2)]
+                vec![src.translate(0, -1), src.translate(0, -2)]
             } else {
-                vec![src.translate(0, 1)]
+                vec![src.translate(0, -1)]
             }
         }
     };
     to_moves(board, src, s.iter().map(|x| *x))
+}
+
+fn king(board: &Board, src: Square) -> Vec<Move> {
+    let a = [
+        src.translate(1, 0),
+        src.translate(-1, 0),
+        src.translate(1, 1),
+        src.translate(1, -1),
+        src.translate(0, -1),
+        src.translate(0, 1),
+        src.translate(-1, 1),
+        src.translate(-1, -1),
+    ];
+    a.iter()
+        .filter_map(|&sqr| {
+            let sqr = sqr?;
+            let piece = board.get_piece(sqr);
+            match piece {
+                Some(piece) => {
+                    if piece.owner == board.turn {
+                        None
+                    } else {
+                        Some(Move::Move(false, sqr, src))
+                    }
+                }
+                None => Some(Move::Move(true, sqr, src)),
+            }
+        })
+        .collect()
 }
 
 pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {
@@ -125,6 +154,6 @@ pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {
         board::PieceKind::Rook => Some(rook(board, src)),
         board::PieceKind::Queen => Some(queen(board, src)),
         board::PieceKind::Pawn => Some(pawn(board, src)),
-        _ => None,
+        board::PieceKind::King => Some(king(board, src)),
     }
 }

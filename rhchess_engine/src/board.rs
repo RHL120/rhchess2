@@ -49,8 +49,8 @@ impl Square {
         }
     }
     pub fn translate(self, file: i32, rank: i32) -> Option<Square> {
-        let file = self.file as i32 - file;
-        let rank = self.rank as i32 - rank;
+        let file = self.file as i32 + file;
+        let rank = self.rank as i32 + rank;
         if file < 8 && rank < 8 {
             Some(Square {
                 rank: rank.try_into().ok()?,
@@ -118,7 +118,7 @@ impl Default for Board {
     fn default() -> Self {
         use PieceKind::*;
         use Player::*;
-        let mut positions: [Option<Piece>; 64] = [
+        let positions: [Option<Piece>; 64] = [
             Some(Piece {
                 kind: Rook,
                 owner: White,
