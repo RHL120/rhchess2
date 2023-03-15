@@ -17,7 +17,7 @@ pub fn Board() -> Html {
                     let board = ref_board.clone();
                     let square = board::Square::new(idx % 8, 7 - (idx / 8)).unwrap();
                     let piece = board.lock().unwrap().get_piece(square);
-                    let color = if  (idx % 8 + idx / 8) % 2 != 0 {
+                    let color = if  (idx % 8 + idx / 8) % 2 == 0 {
                         square::Color::Light
                     } else {
                         square::Color::Dark
