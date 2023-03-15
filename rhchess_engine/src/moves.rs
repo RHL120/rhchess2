@@ -128,10 +128,10 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
             board.get_piece(sqr).map(|_| Move::Move(false, sqr, src))
         })
         .collect();
-    if let Some(en_passent) = board.en_passent {
-        if let Some(true) = en_passent.translate(1, 0).map(|x| x == src) {
+    if let Some(en_passant) = board.en_passant {
+        if let Some(true) = en_passant.translate(1, 0).map(|x| x == src) {
             moves.push(Move::EnPassent(src));
-        } else if let Some(true) = en_passent.translate(-1, 0).map(|x| x == src) {
+        } else if let Some(true) = en_passant.translate(-1, 0).map(|x| x == src) {
             moves.push(Move::EnPassent(src));
         }
     }

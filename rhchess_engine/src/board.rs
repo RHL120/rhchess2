@@ -93,8 +93,8 @@ pub struct Board {
     pub turn: Player,
     /// (white queen castle, white king castle, black queen castle, black king castle)
     pub castling_rights: (bool, bool, bool, bool),
-    /// The en passent target square
-    pub en_passent: Option<Square>,
+    /// The en passant target square
+    pub en_passant: Option<Square>,
     /// The number of moves that does not envolve a capture/pawn push
     pub reversible_moves: u16,
     /// The number of moves
@@ -109,7 +109,7 @@ impl Board {
         match m {
             moves::Move::Move(_, dst, src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
-                self.en_passent = if let PieceKind::Pawn = piece.kind {
+                self.en_passant = if let PieceKind::Pawn = piece.kind {
                     let (init_rank, _) = piece.owner.pawn_info();
                     if src.rank == init_rank && ((dst.rank as i32) - (src.rank as i32)).abs() == 2 {
                         Some(dst)
@@ -125,11 +125,11 @@ impl Board {
             moves::Move::EnPassent(src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
                 self.positions[(src.rank * 8 + src.file) as usize] = None;
-                let en_passent = self.en_passent.unwrap();
-                let dst = en_passent.translate(0, piece.owner.pawn_info().1).unwrap();
-                self.positions[(en_passent.rank * 8 + en_passent.file) as usize] = None;
+                let en_passant = self.en_passant.unwrap();
+                let dst = en_passant.translate(0, piece.owner.pawn_info().1).unwrap();
+                self.positions[(en_passant.rank * 8 + en_passant.file) as usize] = None;
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
-                self.en_passent = None;
+                self.en_passant = None;
             }
             _ => todo!(),
         };
@@ -312,7 +312,7 @@ impl Default for Board {
             positions,
             turn: White,
             castling_rights: (true, true, true, true),
-            en_passent: None,
+            en_passant: None,
             reversible_moves: 0,
             full_moves: 1,
         }
