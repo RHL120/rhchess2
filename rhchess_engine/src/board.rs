@@ -17,6 +17,15 @@ pub enum Player {
     Black,
 }
 
+impl Player {
+    pub fn pawn_info(&self) -> (u8, i32) {
+        match self {
+            Player::White => (1, 1),
+            Player::Black => (6, -1),
+        }
+    }
+}
+
 /// The piece itself
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Piece {
@@ -99,12 +108,31 @@ impl Board {
     pub fn make_move(&mut self, m: moves::Move) {
         match m {
             moves::Move::Move(_, dst, src) => {
-                self.positions[(dst.rank * 8 + dst.file) as usize] =
-                    self.positions[(src.rank * 8 + src.file) as usize];
+                let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
+                self.en_passent = if let PieceKind::Pawn = piece.kind {
+                    let (init_rank, _) = piece.owner.pawn_info();
+                    if src.rank == init_rank && ((dst.rank as i32) - (src.rank as i32)).abs() == 2 {
+                        Some(dst)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
                 self.positions[(src.rank * 8 + src.file) as usize] = None;
+                self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
+            }
+            moves::Move::EnPassent(src) => {
+                let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
+                self.positions[(src.rank * 8 + src.file) as usize] = None;
+                let en_passent = self.en_passent.unwrap();
+                let dst = en_passent.translate(0, piece.owner.pawn_info().1).unwrap();
+                self.positions[(en_passent.rank * 8 + en_passent.file) as usize] = None;
+                self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
+                self.en_passent = None;
             }
             _ => todo!(),
-        }
+        };
     }
     pub fn switch_player(&mut self) {
         self.turn = match self.turn {

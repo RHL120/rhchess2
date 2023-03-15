@@ -25,7 +25,12 @@ pub fn Board() -> Html {
                     let target_check = |&i: &moves::Move| {
                         match i {
                             moves::Move::Move(_, dst, _) => square == dst,
-                            _ => false
+                            moves::Move::EnPassent(_) => {
+                                let board = board.lock().unwrap();
+                                let (_, direction) = board.turn.pawn_info();
+                                board.en_passent.unwrap().translate(0, direction).unwrap() == square
+                            },
+                            _ => todo!()
                         }
                     };
                     let status = if Some(square) == *selected {
@@ -50,6 +55,7 @@ pub fn Board() -> Html {
                                     targets.set(Vec::new());
                                     let mut b = board.lock().unwrap();
                                     b.make_move(targets[m]);
+                                    log::info!("{:#?}", b.en_passent);
                                     b.switch_player();
                                 }),
                                 None => Callback::from(|_| {})

@@ -98,10 +98,7 @@ fn queen(board: &Board, src: Square) -> Vec<Move> {
 }
 
 fn pawn(board: &Board, src: Square) -> Vec<Move> {
-    let (init_rank, rank_multiple) = match board.turn {
-        board::Player::White => (1, 1),
-        board::Player::Black => (6, -1),
-    };
+    let (init_rank, rank_multiple) = board.turn.pawn_info();
     let to_move = |&sqr| {
         let sqr = sqr?;
         if board.get_piece(sqr).is_none() {
@@ -131,6 +128,13 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
             board.get_piece(sqr).map(|_| Move::Move(false, sqr, src))
         })
         .collect();
+    if let Some(en_passent) = board.en_passent {
+        if let Some(true) = en_passent.translate(1, 0).map(|x| x == src) {
+            moves.push(Move::EnPassent(src));
+        } else if let Some(true) = en_passent.translate(-1, 0).map(|x| x == src) {
+            moves.push(Move::EnPassent(src));
+        }
+    }
     moves.append(&mut captures);
     moves
 }
