@@ -24,6 +24,12 @@ impl Player {
             Player::Black => (6, -1),
         }
     }
+    pub fn opposite(&self) -> Self {
+        match self {
+            Player::White => Player::Black,
+            Player::Black => Player::White,
+        }
+    }
 }
 
 /// The piece itself
@@ -92,6 +98,21 @@ pub struct CastlingRights {
     pub black_king: bool,
 }
 
+impl CastlingRights {
+    fn set(&mut self, queen: Option<bool>, king: Option<bool>, player: Player) {
+        match player {
+            Player::Black => {
+                self.black_king = king.unwrap_or(self.black_king);
+                self.black_queen = queen.unwrap_or(self.black_queen);
+            }
+            Player::White => {
+                self.white_king = king.unwrap_or(self.white_king);
+                self.white_queen = queen.unwrap_or(self.white_queen);
+            }
+        }
+    }
+}
+
 impl Default for CastlingRights {
     fn default() -> Self {
         CastlingRights {
@@ -123,7 +144,50 @@ impl Board {
     pub fn get_piece(&self, s: Square) -> Option<Piece> {
         self.positions[(s.rank * 8 + s.file) as usize]
     }
+    fn update_castling(&mut self, m: moves::Move) {
+        match m {
+            moves::Move::Move(_, dst, src) => {
+                match self.get_piece(src).unwrap().kind {
+                    PieceKind::Rook => {
+                        //no need to check the rank because if it has changed the player
+                        //has already lost their castling rights on that rook
+                        match src.file {
+                            7 => self.castling_rights.set(None, Some(false), self.turn),
+                            0 => self.castling_rights.set(Some(false), None, self.turn),
+                            _ => (),
+                        };
+                    }
+                    PieceKind::King => {
+                        self.castling_rights
+                            .set(Some(false), Some(false), self.turn);
+                        //If the king is close to atcking an enemy rook
+                        //it has already lost it's castling rights so no need
+                        //to check for that.
+                        return;
+                    }
+                    _ => (),
+                }
+                let opposite_rank = match self.turn {
+                    Player::Black => 0,
+                    Player::White => 7,
+                };
+                if dst == Square::new(7, opposite_rank).unwrap() {
+                    self.castling_rights
+                        .set(None, Some(false), self.turn.opposite());
+                } else if dst == Square::new(0, opposite_rank).unwrap() {
+                    self.castling_rights
+                        .set(Some(false), None, self.turn.opposite());
+                }
+            }
+            moves::Move::Castle(_) => {
+                self.castling_rights
+                    .set(Some(false), Some(false), self.turn);
+            }
+            _ => (),
+        }
+    }
     pub fn make_move(&mut self, m: moves::Move) {
+        self.update_castling(m);
         match m {
             moves::Move::Move(_, dst, src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
@@ -169,10 +233,7 @@ impl Board {
         };
     }
     pub fn switch_player(&mut self) {
-        self.turn = match self.turn {
-            Player::White => Player::Black,
-            Player::Black => Player::White,
-        };
+        self.turn = self.turn.opposite();
     }
 }
 
