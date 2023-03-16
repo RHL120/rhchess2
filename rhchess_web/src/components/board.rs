@@ -8,7 +8,7 @@ use yew::prelude::*;
 #[function_component]
 pub fn Board() -> Html {
     let selected = use_state::<Option<board::Square>, _>(|| None);
-    let targets = use_state::<Vec<moves::Move>, _>(|| Vec::new());
+    let targets = use_state::<Vec<moves::Move>, _>(Vec::new);
     let ref_board = use_state(|| Arc::new(Mutex::new(board::Board::default())));
     let ret = html! {
         <div id="board">
