@@ -125,7 +125,16 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
         .iter()
         .filter_map(|&dir| {
             let sqr = src.translate(dir, rank_multiple)?;
-            board.get_piece(sqr).map(|_| Move::Move(false, sqr, src))
+            match board.get_piece(sqr) {
+                Some(piece) => {
+                    if piece.owner != board.turn {
+                        Some(Move::Move(false, sqr, src))
+                    } else {
+                        None
+                    }
+                }
+                None => None,
+            }
         })
         .collect();
     if let Some(en_passant) = board.en_passant {
