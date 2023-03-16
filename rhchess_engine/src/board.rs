@@ -149,7 +149,23 @@ impl Board {
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
                 self.en_passant = None;
             }
-            _ => todo!(),
+            moves::Move::Castle(king_side) => {
+                let rank = match self.turn {
+                    Player::White => 0,
+                    Player::Black => 7,
+                };
+                if king_side {
+                    self.positions[rank * 8 + 6] = self.positions[rank * 8 + 4];
+                    self.positions[rank * 8 + 4] = None;
+                    self.positions[rank * 8 + 5] = self.positions[rank * 8 + 7];
+                    self.positions[rank * 8 + 7] = None;
+                } else {
+                    self.positions[rank * 8 + 2] = self.positions[rank * 8 + 4];
+                    self.positions[rank * 8 + 4] = None;
+                    self.positions[rank * 8 + 3] = self.positions[rank * 8];
+                    self.positions[rank * 8] = None;
+                }
+            }
         };
     }
     pub fn switch_player(&mut self) {

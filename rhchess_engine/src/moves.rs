@@ -4,7 +4,7 @@ use crate::board::Square;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Move {
-    /// Castle(king_size)
+    /// Castle(king_side)
     Castle(bool),
     /// EnPassent(src)
     EnPassent(Square),
@@ -150,7 +150,7 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
         src.translate(-1, 1),
         src.translate(-1, -1),
     ];
-    let moves = moves
+    let mut moves: Vec<Move> = moves
         .iter()
         .filter_map(|&sqr| {
             let sqr = sqr?;
@@ -167,6 +167,29 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
             }
         })
         .collect();
+    let (queen_side, king_side) = match board.turn {
+        board::Player::White => (
+            board.castling_rights.white_queen,
+            board.castling_rights.white_king,
+        ),
+        board::Player::Black => (
+            board.castling_rights.black_queen,
+            board.castling_rights.black_king,
+        ),
+    };
+    if king_side
+        && board.get_piece(src.translate(1, 0).unwrap()).is_none()
+        && board.get_piece(src.translate(2, 0).unwrap()).is_none()
+    {
+        moves.push(Move::Castle(true))
+    }
+    if queen_side
+        && board.get_piece(src.translate(-1, 0).unwrap()).is_none()
+        && board.get_piece(src.translate(-2, 0).unwrap()).is_none()
+        && board.get_piece(src.translate(-3, 0).unwrap()).is_none()
+    {
+        moves.push(Move::Castle(false))
+    }
     moves
 }
 

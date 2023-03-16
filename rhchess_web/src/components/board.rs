@@ -30,7 +30,14 @@ pub fn Board() -> Html {
                                 let (_, direction) = board.turn.pawn_info();
                                 board.en_passant.unwrap().translate(0, direction).unwrap() == square
                             },
-                            _ => todo!()
+                            moves::Move::Castle(king_side) => {
+                                let rank = match board.lock().unwrap().turn {
+                                    board::Player::White => 0,
+                                    board::Player::Black => 7,
+                                };
+                                (king_side && square == board::Square::new(6, rank).unwrap())
+                                    || (!king_side && square == board::Square::new(2, rank).unwrap())
+                            }
                         }
                     };
                     let status = if Some(square) == *selected {
@@ -75,5 +82,8 @@ pub fn Board() -> Html {
             }
         </div>
     };
+    for i in &*targets {
+        log::info!("{:#?}", i);
+    }
     ret
 }
