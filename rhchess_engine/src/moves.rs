@@ -140,7 +140,7 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
 }
 
 fn king(board: &Board, src: Square) -> Vec<Move> {
-    let a = [
+    let moves = [
         src.translate(1, 0),
         src.translate(-1, 0),
         src.translate(1, 1),
@@ -150,7 +150,8 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
         src.translate(-1, 1),
         src.translate(-1, -1),
     ];
-    a.iter()
+    let moves = moves
+        .iter()
         .filter_map(|&sqr| {
             let sqr = sqr?;
             let piece = board.get_piece(sqr);
@@ -165,7 +166,8 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
                 None => Some(Move::Move(true, sqr, src)),
             }
         })
-        .collect()
+        .collect();
+    moves
 }
 
 pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {

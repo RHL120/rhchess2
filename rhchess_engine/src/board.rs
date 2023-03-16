@@ -84,6 +84,25 @@ impl std::fmt::Debug for Square {
     }
 }
 
+#[derive(Debug)]
+pub struct CastlingRights {
+    pub white_queen: bool,
+    pub white_king: bool,
+    pub black_queen: bool,
+    pub black_king: bool,
+}
+
+impl Default for CastlingRights {
+    fn default() -> Self {
+        CastlingRights {
+            white_queen: true,
+            white_king: true,
+            black_queen: true,
+            black_king: true,
+        }
+    }
+}
+
 /// The board representation
 #[derive(Debug)]
 pub struct Board {
@@ -91,8 +110,7 @@ pub struct Board {
     pub positions: [Option<Piece>; 64],
     /// The player that should play in the current move
     pub turn: Player,
-    /// (white queen castle, white king castle, black queen castle, black king castle)
-    pub castling_rights: (bool, bool, bool, bool),
+    pub castling_rights: CastlingRights,
     /// The en passant target square
     pub en_passant: Option<Square>,
     /// The number of moves that does not envolve a capture/pawn push
@@ -311,7 +329,7 @@ impl Default for Board {
         Self {
             positions,
             turn: White,
-            castling_rights: (true, true, true, true),
+            castling_rights: CastlingRights::default(),
             en_passant: None,
             reversible_moves: 0,
             full_moves: 1,
