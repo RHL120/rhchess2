@@ -82,8 +82,5 @@ pub fn Board() -> Html {
             }
         </div>
     };
-    for i in &*targets {
-        log::info!("{:#?}", i);
-    }
     ret
 }
