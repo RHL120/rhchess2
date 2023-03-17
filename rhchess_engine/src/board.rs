@@ -244,7 +244,7 @@ impl Board {
     pub fn is_promotion(&self, m: moves::Move) -> bool {
         match m {
             moves::Move::Move(_, dst, src) => match self.get_piece(src).unwrap().kind {
-                PieceKind::Pawn => dst.rank == self.turn.king_rank(),
+                PieceKind::Pawn => dst.rank == self.turn.opposite().king_rank(),
                 _ => false,
             },
             _ => false,
