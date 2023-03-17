@@ -30,6 +30,12 @@ impl Player {
             Player::Black => Player::White,
         }
     }
+    pub fn king_rank(&self) -> u8 {
+        match self {
+            Player::White => 0,
+            Player::Black => 7,
+        }
+    }
 }
 
 /// The piece itself
@@ -234,6 +240,26 @@ impl Board {
     }
     pub fn switch_player(&mut self) {
         self.turn = self.turn.opposite();
+    }
+    pub fn is_promotion(&self, m: moves::Move) -> bool {
+        match m {
+            moves::Move::Move(_, dst, src) => match self.get_piece(src).unwrap().kind {
+                PieceKind::Pawn => dst.rank == self.turn.opposite().king_rank(),
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+    pub fn make_promotion(&mut self, m: moves::Move, kind: PieceKind) {
+        match m {
+            moves::Move::Move(_, dst, _) => {
+                self.positions[(8 * dst.rank + dst.file) as usize] = Some(Piece {
+                    kind,
+                    owner: self.turn,
+                })
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
