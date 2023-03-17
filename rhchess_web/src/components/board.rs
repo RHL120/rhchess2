@@ -68,7 +68,6 @@ pub fn Board() -> Html {
                                     b.make_move(targets[m]);
                                     if promoting {
                                         let promotion2 = promotion.clone();
-                                        log::info!("is promotion");
                                         let targets = targets.clone();
                                         promotion.set(Some(Callback::from(move |k| {
                                             targets.set(Vec::new());
@@ -79,7 +78,6 @@ pub fn Board() -> Html {
                                         })))
                                     } else {
                                         targets.set(Vec::new());
-                                        log::info!("Not promotion");
                                         b.switch_player();
                                     }
                                 }),
