@@ -1,5 +1,6 @@
 use crate::moves;
 use std::collections::HashMap;
+use std::collections::HashSet;
 /// The kind of a chess peice
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceKind {
@@ -136,10 +137,10 @@ impl Default for CastlingRights {
 pub struct Attacks {
     /// The key contains the squares that white attacks and the value contains
     /// the squares from which white attacks them
-    pub white_attacks: HashMap<Square, Vec<Square>>,
+    pub white_attacks: HashMap<Square, HashSet<Square>>,
     /// The key contains the squares that black attacks and the value contains
     /// the squares from which black attacks them
-    pub black_attacks: HashMap<Square, Square>,
+    pub black_attacks: HashMap<Square, HashSet<Square>>,
     /// The key contains the squares that contain a white piece that absolutely pin
     /// a black piece and the value contains the black absolutely pinned piece
     pub white_pins: HashMap<Square, Square>,
