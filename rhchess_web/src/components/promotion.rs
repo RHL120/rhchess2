@@ -17,7 +17,7 @@ pub fn PromotionMenu(props: &Props) -> Html {
     html! {
         <div id="promotion_menu">
         {
-            [('B', Bishop), ('N', Knight), ('Q', Queen)]
+            [('B', Bishop), ('N', Knight), ('Q', Queen), ('R', Rook)]
                 .iter()
                 .map(|&(name, kind)| {
                     let on_choice = props.on_choice.clone();
