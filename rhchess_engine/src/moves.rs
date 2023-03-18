@@ -202,7 +202,7 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
     moves
 }
 
-pub fn get_move(board: &Board, src: Square) -> Option<Vec<Move>> {
+pub fn get_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     match board.get_piece(src).as_ref()?.kind {
         board::PieceKind::Knight => Some(knight(board, src)),
         board::PieceKind::Bishop => Some(bishop(board, src)),
