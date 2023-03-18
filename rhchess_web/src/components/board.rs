@@ -1,3 +1,4 @@
+use super::promotion::PromotionMenu;
 use super::square;
 use super::square::Square;
 use rhchess_engine::board;
@@ -7,9 +8,13 @@ use std::sync::Mutex;
 use yew::prelude::*;
 #[function_component]
 pub fn Board() -> Html {
+    //TODO: The code found below is known to cause headaches, chess AIDS, and lung cancer
+    //for those who look at it. I should probably replace it with something
+    //inspired by elm.
     let selected = use_state::<Option<board::Square>, _>(|| None);
-    let targets = use_state::<Vec<moves::Move>, _>(|| Vec::new());
+    let targets = use_state::<Vec<moves::Move>, _>(Vec::new);
     let ref_board = use_state(|| Arc::new(Mutex::new(board::Board::default())));
+    let promotion = use_state::<Option<Callback<board::PieceKind>>, _>(|| None);
     let ret = html! {
         <div id="board">
             {
@@ -57,12 +62,27 @@ pub fn Board() -> Html {
                             selected.set(Some(square));
                         }),
                         _ => {
+                            let promotion = promotion.clone();
                             match targets.iter().position(target_check) {
                                 Some(m) => Callback::from(move |_| {
-                                    targets.set(Vec::new());
                                     let mut b = board.lock().unwrap();
+                                    let promoting = b.is_promotion(targets[m]);
+                                    let b2 = board.clone();
                                     b.make_move(targets[m]);
-                                    b.switch_player();
+                                    if promoting {
+                                        let promotion2 = promotion.clone();
+                                        let targets = targets.clone();
+                                        promotion.set(Some(Callback::from(move |k| {
+                                            targets.set(Vec::new());
+                                            let mut board = b2.lock().unwrap();
+                                            board.make_promotion(targets[m], k);
+                                            board.switch_player();
+                                            promotion2.set(None);
+                                        })))
+                                    } else {
+                                        targets.set(Vec::new());
+                                        b.switch_player();
+                                    }
                                 }),
                                 None => Callback::from(|_| {})
                             }
@@ -80,10 +100,19 @@ pub fn Board() -> Html {
                 })
                 .collect::<Html>()
             }
+            {
+                if let Some(on_choice) = promotion.as_ref() {
+                    html! {
+                        <PromotionMenu
+                        {on_choice}
+                        player={ref_board.lock().unwrap().turn}
+                        />
+                    }
+                } else {
+                    html!{}
+                }
+            }
         </div>
     };
-    for i in &*targets {
-        log::info!("{:#?}", i);
-    }
     ret
 }
