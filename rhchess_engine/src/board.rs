@@ -1,4 +1,5 @@
 use crate::moves;
+use std::collections::HashMap;
 /// The kind of a chess peice
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceKind {
@@ -130,6 +131,38 @@ impl Default for CastlingRights {
     }
 }
 
+#[derive(Debug)]
+/// Keeps track of pinned pieces, attacked squares and en passent checks
+pub struct Attacks {
+    /// The key contains the squares that white attacks and the value contains
+    /// the squares from which white attacks them
+    pub white_attacks: HashMap<Square, Vec<Square>>,
+    /// The key contains the squares that black attacks and the value contains
+    /// the squares from which black attacks them
+    pub black_attacks: HashMap<Square, Square>,
+    /// The key contains the squares that contain a white piece that absolutely pin
+    /// a black piece and the value contains the black absolutely pinned piece
+    pub white_pins: HashMap<Square, Square>,
+    /// The key contains the squares that contain a white piece that absolutely pin
+    /// a black piece and the value contains the black absolutely pinned piece
+    pub black_pins: HashMap<Square, Square>,
+    ///This bool is true if the player can take a pawn via en passant without
+    ///puting their own king in check
+    pub can_en_passant: bool,
+}
+
+impl Default for Attacks {
+    fn default() -> Self {
+        Self {
+            white_attacks: HashMap::new(),
+            black_attacks: HashMap::new(),
+            white_pins: HashMap::new(),
+            black_pins: HashMap::new(),
+            can_en_passant: true,
+        }
+    }
+}
+
 /// The board representation
 #[derive(Debug)]
 pub struct Board {
@@ -144,6 +177,8 @@ pub struct Board {
     pub reversible_moves: u16,
     /// The number of moves
     pub full_moves: u16,
+    /// The attack information (relevant to checks)
+    pub attacks: Attacks,
 }
 
 impl Board {
@@ -436,6 +471,7 @@ impl Default for Board {
             en_passant: None,
             reversible_moves: 0,
             full_moves: 1,
+            attacks: Attacks::default(),
         }
     }
 }
