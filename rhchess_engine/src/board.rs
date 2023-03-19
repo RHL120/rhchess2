@@ -175,6 +175,9 @@ impl Attacks {
             Player::Black => self.black_attacks.get(&s),
         }
     }
+    pub fn does_attack(&self, p: Player, s: Square) -> bool {
+        self.get_attacks_for(p, s).is_some()
+    }
 }
 
 impl Default for Attacks {
@@ -192,6 +195,10 @@ impl Default for Attacks {
 /// The board representation
 #[derive(Debug)]
 pub struct Board {
+    /// the position of the black king
+    pub black_pos: Square,
+    /// the position of the white king
+    pub white_pos: Square,
     /// The piece placement
     pub positions: [Option<Piece>; 64],
     /// The player that should play in the current move
@@ -208,6 +215,12 @@ pub struct Board {
 }
 
 impl Board {
+    pub fn current_king(&self) -> Square {
+        match self.turn {
+            Player::White => self.white_pos,
+            Player::Black => self.black_pos,
+        }
+    }
     pub fn get_piece(&self, s: Square) -> Option<Piece> {
         self.positions[(s.rank * 8 + s.file) as usize]
     }
@@ -796,6 +809,8 @@ impl Default for Board {
             reversible_moves: 0,
             full_moves: 1,
             attacks: Attacks::default(),
+            white_pos: Square { rank: 0, file: 4 },
+            black_pos: Square { rank: 7, file: 4 },
         };
         for i in 0..64 {
             let sq = Square::from_idx(i).unwrap();

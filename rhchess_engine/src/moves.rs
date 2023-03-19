@@ -213,6 +213,69 @@ pub fn get_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     }
 }
 
+pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
+    king(board, src)
+        .iter()
+        .filter_map(|&mv| match mv {
+            Move::Move(_, _, dst) => {
+                if board.attacks.does_attack(board.turn.opposite(), dst) {
+                    Some(mv)
+                } else {
+                    None
+                }
+            }
+            Move::Castle(king_side) => {
+                let king_rank = board.turn.king_rank();
+                if king_side {
+                    let first = Square {
+                        rank: king_rank,
+                        file: 5,
+                    };
+                    let second = Square {
+                        rank: king_rank,
+                        file: 5,
+                    };
+                    let opp = board.turn.opposite();
+                    if board.attacks.does_attack(opp, first)
+                        || board.attacks.does_attack(opp, second)
+                    {
+                        None
+                    } else {
+                        Some(mv)
+                    }
+                } else {
+                    let first = Square {
+                        rank: king_rank,
+                        file: 2,
+                    };
+                    let second = Square {
+                        rank: king_rank,
+                        file: 3,
+                    };
+                    let opp = board.turn.opposite();
+                    if board.attacks.does_attack(opp, first)
+                        || board.attacks.does_attack(opp, second)
+                    {
+                        None
+                    } else {
+                        Some(mv)
+                    }
+                }
+            }
+            Move::EnPassent(_) => unreachable!(),
+        })
+        .collect()
+}
+
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
+    let king_pos = board.current_king();
+    let king_attacks = board
+        .attacks
+        .get_attacks_for(board.turn.opposite(), king_pos);
+    // the king must get out of a check
+    if let Some(king_attacks) = king_attacks {
+        //There is a double check, the king must move
+        if king_attacks.len() >= 2 {}
+    }
     todo!()
 }
