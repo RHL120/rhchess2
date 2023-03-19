@@ -169,6 +169,12 @@ impl Attacks {
             attacks.remove(&i);
         }
     }
+    pub fn get_attacks_for<'a>(&'a self, p: Player, s: Square) -> Option<&'a HashSet<Square>> {
+        match p {
+            Player::White => self.white_attacks.get(&s),
+            Player::Black => self.black_attacks.get(&s),
+        }
+    }
 }
 
 impl Default for Attacks {

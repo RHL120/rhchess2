@@ -212,3 +212,7 @@ pub fn get_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         board::PieceKind::King => Some(king(board, src)),
     }
 }
+
+pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
+    todo!()
+}
