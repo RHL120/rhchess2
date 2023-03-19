@@ -47,7 +47,7 @@ pub struct Piece {
     pub owner: Player,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {
     pub rank: u8,
     pub file: u8,
@@ -152,6 +152,25 @@ pub struct Attacks {
     pub can_en_passant: bool,
 }
 
+impl Attacks {
+    fn clear_attacks_by(&mut self, square: Square, player: Player) {
+        let attacks = match player {
+            Player::White => &mut self.white_attacks,
+            Player::Black => &mut self.black_attacks,
+        };
+        let mut to_delete = Vec::new();
+        for (key, value) in &mut *attacks {
+            value.remove(&square);
+            if value.len() == 0 {
+                to_delete.push(*key);
+            }
+        }
+        for i in to_delete {
+            attacks.remove(&i);
+        }
+    }
+}
+
 impl Default for Attacks {
     fn default() -> Self {
         Self {
@@ -245,13 +264,17 @@ impl Board {
                     None
                 };
                 self.positions[(src.rank * 8 + src.file) as usize] = None;
+                let capt = self.positions[(dst.rank * 8 + dst.file) as usize];
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
+                self.update_attacks(m, capt.map(|x| (x, src)))
             }
             moves::Move::EnPassent(src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
                 self.positions[(src.rank * 8 + src.file) as usize] = None;
                 let en_passant = self.en_passant.unwrap();
                 let dst = en_passant.translate(0, piece.owner.pawn_info().1).unwrap();
+                let capt = self.positions[(en_passant.rank * 8 + en_passant.file) as usize];
+                self.update_attacks(m, capt.map(|x| (x, src)));
                 self.positions[(en_passant.rank * 8 + en_passant.file) as usize] = None;
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
                 self.en_passant = None;
@@ -272,9 +295,9 @@ impl Board {
                     self.positions[rank * 8 + 3] = self.positions[rank * 8];
                     self.positions[rank * 8] = None;
                 }
+                self.update_attacks(m, None);
             }
         };
-        self.update_attacks(m, None);
     }
     pub fn switch_player(&mut self) {
         self.turn = self.turn.opposite();
@@ -301,8 +324,7 @@ impl Board {
     }
     fn first_piece_is(
         &self,
-        mut rng: impl Iterator<Item = Square>,
-        sq: Square,
+        rng: impl Iterator<Item = Square>,
         kinds: &[PieceKind],
     ) -> Option<(Piece, Square)> {
         for i in rng {
@@ -319,43 +341,19 @@ impl Board {
     fn surrounding_pieces(&mut self, sq: Square) -> Vec<(Piece, Square)> {
         use PieceKind::{Bishop, Queen, Rook};
         let mut ret: Vec<(Piece, Square)> = [
-            self.first_piece_is((1..8).map_while(|x| sq.translate(x, 0)), sq, &[Rook, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(0, x)), sq, &[Rook, Queen]),
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(-x, 0)),
-                sq,
-                &[Rook, Queen],
-            ),
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(0, -x)),
-                sq,
-                &[Rook, Queen],
-            ),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(x, 0)), &[Rook, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(0, x)), &[Rook, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, 0)), &[Rook, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(0, -x)), &[Rook, Queen]),
         ]
         .iter()
         .filter_map(|&x| x)
         .collect();
         let mut bishop = [
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(-x, -x)),
-                sq,
-                &[Bishop, Queen],
-            ),
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(-x, x)),
-                sq,
-                &[Bishop, Queen],
-            ),
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(x, -x)),
-                sq,
-                &[Bishop, Queen],
-            ),
-            self.first_piece_is(
-                (1..8).map_while(|x| sq.translate(x, x)),
-                sq,
-                &[Bishop, Queen],
-            ),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, -x)), &[Bishop, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, x)), &[Bishop, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(x, -x)), &[Bishop, Queen]),
+            self.first_piece_is((1..8).map_while(|x| sq.translate(x, x)), &[Bishop, Queen]),
         ]
         .iter()
         .filter_map(|&x| x)
@@ -421,29 +419,200 @@ impl Board {
         ret.append(&mut king);
         ret
     }
-    fn calculate_piece_attack(&mut self, square: Square, p: Piece) {
-        let attacks = match p.owner {
+    fn update_knight_attacks(&mut self, square: Square, p: Player) {
+        let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
+        };
+        let attacks: Vec<Square> = [
+            square
+                .rank
+                .checked_sub(2)
+                .and_then(|x| Square::new(square.file + 1, x)),
+            square
+                .rank
+                .checked_sub(1)
+                .and_then(|x| Square::new(square.file + 2, x)),
+            Square::new(square.file + 2, square.rank + 1),
+            Square::new(square.file + 1, square.rank + 2),
+            square
+                .file
+                .checked_sub(1)
+                .and_then(|x| Square::new(x, square.rank + 2)),
+            square
+                .file
+                .checked_sub(2)
+                .and_then(|x| Square::new(x, square.rank + 1)),
+            square
+                .file
+                .checked_sub(2)
+                .and_then(|f| square.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
+            square
+                .file
+                .checked_sub(1)
+                .and_then(|f| square.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
+        ]
+        .iter()
+        .filter_map(|&x| x)
+        .collect();
+        for i in attacks {
+            if !r.contains_key(&i) {
+                r.insert(i, HashSet::new());
+            }
+            r.get_mut(&i).unwrap().insert(square);
+        }
+    }
+    fn update_king_attacks(&mut self, square: Square, p: Player) {
+        let r = match p {
+            Player::White => &mut self.attacks.white_attacks,
+            Player::Black => &mut self.attacks.black_attacks,
+        };
+        let attacks: Vec<Square> = [
+            square.translate(1, 0),
+            square.translate(-1, 0),
+            square.translate(1, 1),
+            square.translate(1, -1),
+            square.translate(0, -1),
+            square.translate(0, 1),
+            square.translate(-1, 1),
+            square.translate(-1, -1),
+        ]
+        .iter()
+        .filter_map(|&x| x)
+        .collect();
+        for i in attacks {
+            if !r.contains_key(&i) {
+                r.insert(i, HashSet::new());
+            }
+            r.get_mut(&i).unwrap().insert(square);
+        }
+    }
+    fn to_attack(&self, line: impl Iterator<Item = Option<Square>>) -> HashSet<Square> {
+        let mut ret = HashSet::new();
+        for i in line {
+            match i {
+                None => break,
+                Some(s) => match self.get_piece(s) {
+                    None => ret.insert(s),
+                    Some(_) => {
+                        ret.insert(s);
+                        break;
+                    }
+                },
+            };
+        }
+        ret
+    }
+    fn update_bishop_attacks(&mut self, square: Square, p: Player) {
+        let attacks = [
+            self.to_attack((1..8).map(|x| square.translate(-x, -x))),
+            self.to_attack((1..8).map(|x| square.translate(-x, x))),
+            self.to_attack((1..8).map(|x| square.translate(x, -x))),
+            self.to_attack((1..8).map(|x| square.translate(x, x))),
+        ];
+        let r = match p {
+            Player::White => &mut self.attacks.white_attacks,
+            Player::Black => &mut self.attacks.black_attacks,
+        };
+        for i in attacks {
+            for j in i {
+                if !r.contains_key(&j) {
+                    r.insert(j, HashSet::new());
+                }
+                r.get_mut(&j).unwrap().insert(square);
+            }
+        }
+    }
+    fn update_rook_attacks(&mut self, square: Square, p: Player) {
+        let attacks = [
+            self.to_attack((1..8).map(|x| square.translate(x, 0))),
+            self.to_attack((1..8).map(|x| square.translate(0, x))),
+            self.to_attack((1..8).map(|x| square.translate(-x, 0))),
+            self.to_attack((1..8).map(|x| square.translate(0, -x))),
+        ];
+        let r = match p {
+            Player::White => &mut self.attacks.white_attacks,
+            Player::Black => &mut self.attacks.black_attacks,
+        };
+        for i in attacks {
+            for j in i {
+                if !r.contains_key(&j) {
+                    r.insert(j, HashSet::new());
+                }
+                r.get_mut(&j).unwrap().insert(square);
+            }
+        }
+    }
+    fn update_pawn_attacks(&mut self, square: Square, p: Player) {
+        let r = match p {
+            Player::White => &mut self.attacks.white_attacks,
+            Player::Black => &mut self.attacks.black_attacks,
+        };
+        let (_, rank_multiple) = p.pawn_info();
+        for i in [-1; 1] {
+            if let Some(i) = square.translate(i, rank_multiple) {
+                if !r.contains_key(&i) {
+                    r.insert(i, HashSet::new());
+                }
+                r.get_mut(&i).unwrap().insert(square);
+            }
+        }
+    }
+    fn update_queen_attacks(&mut self, square: Square, p: Player) {
+        self.update_rook_attacks(square, p);
+        self.update_bishop_attacks(square, p);
+    }
+    fn calculate_piece_attack(&mut self, square: Square, p: Piece) {
+        let pl = p.owner;
+        match p.kind {
+            PieceKind::Rook => self.update_rook_attacks(square, pl),
+            PieceKind::Queen => self.update_queen_attacks(square, pl),
+            PieceKind::Bishop => self.update_bishop_attacks(square, pl),
+            PieceKind::Knight => self.update_knight_attacks(square, pl),
+            PieceKind::King => self.update_king_attacks(square, pl),
+            PieceKind::Pawn => self.update_pawn_attacks(square, pl),
         };
     }
     fn update_attacks(&mut self, m: moves::Move, captured: Option<(Piece, Square)>) {
         log::info!("We recived the move: {:#?}", m);
         match m {
             moves::Move::Move(_, src, dst) => {
+                self.attacks.clear_attacks_by(src, self.turn);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
+                if let Some((capt, sq)) = captured {
+                    self.attacks.clear_attacks_by(sq, capt.owner);
+                }
                 for (piece, sq) in diff {
-                    log::info!(
-                        "the piece {:#?} on square {} was effected by the last move",
-                        piece,
-                        sq
-                    );
+                    self.attacks.clear_attacks_by(src, piece.owner);
+                    self.calculate_piece_attack(sq, piece);
                 }
             }
-
-            _ => todo!(),
+            moves::Move::Castle(king_side) => {
+                let king_src = Square::new(4, self.turn.king_rank()).unwrap();
+                let (rook_src, rook_dst, king_dst) = if king_side {
+                    (
+                        Square::new(0, self.turn.king_rank()).unwrap(),
+                        Square::new(3, self.turn.king_rank()).unwrap(),
+                        Square::new(2, self.turn.king_rank()).unwrap(),
+                    )
+                } else {
+                    (
+                        Square::new(7, self.turn.king_rank()).unwrap(),
+                        Square::new(5, self.turn.king_rank()).unwrap(),
+                        Square::new(6, self.turn.king_rank()).unwrap(),
+                    )
+                };
+                self.update_attacks(moves::Move::Move(false, king_dst, king_src), None);
+                self.update_attacks(moves::Move::Move(false, rook_dst, rook_src), None);
+            }
+            moves::Move::EnPassent(src) => {
+                let sq = captured.unwrap().1;
+                let dst = sq.translate(0, self.turn.pawn_info().1).unwrap();
+                self.update_attacks(moves::Move::Move(false, src, dst), captured);
+            }
         }
+        log::info!("{:#?}", self.attacks);
     }
 }
 
