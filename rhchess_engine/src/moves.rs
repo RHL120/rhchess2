@@ -267,6 +267,77 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
         .collect()
 }
 
+fn legal_knight(board: &Board, src: Square) -> Option<Vec<Move>> {
+    if board.attacks.get_pin(board.turn, src).is_none() {
+        Some(knight(board, src))
+    } else {
+        None
+    }
+}
+
+fn legal_bishop(board: &Board, src: Square) -> Option<Vec<Move>> {
+    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+        let rank_diff = pinner.rank as i32 - src.rank as i32;
+        let file_diff = pinner.file as i32 - src.file as i32;
+        //The pinner is on a diagonal
+        if rank_diff.abs() == file_diff.abs() {
+            let rank_diff = rank_diff.signum();
+            let file_diff = file_diff.signum();
+            Some(
+                [
+                    to_moves(
+                        board,
+                        src,
+                        (1..8).map(|x| src.translate(file_diff * x, rank_diff * x)),
+                    ),
+                    to_moves(
+                        board,
+                        src,
+                        (1..8).map(|x| src.translate(-file_diff * x, -rank_diff * x)),
+                    ),
+                ]
+                .concat(),
+            )
+        } else {
+            None
+        }
+    } else {
+        Some(bishop(board, src))
+    }
+}
+
+fn legal_rook(board: &Board, src: Square) -> Option<Vec<Move>> {
+    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+        let rank_diff = pinner.rank as i32 - src.rank as i32;
+        let file_diff = pinner.file as i32 - src.file as i32;
+        //The pinner is vertical
+        if rank_diff == 0 {
+            let file_diff = file_diff.signum();
+            Some(
+                [
+                    to_moves(board, src, (1..8).map(|x| src.translate(0, file_diff * x))),
+                    to_moves(board, src, (1..8).map(|x| src.translate(0, -file_diff * x))),
+                ]
+                .concat(),
+            )
+        } else if file_diff == 0 {
+            //The pinner is horizontal
+            let rank_diff = rank_diff.signum();
+            Some(
+                [
+                    to_moves(board, src, (1..8).map(|x| src.translate(0, rank_diff * x))),
+                    to_moves(board, src, (1..8).map(|x| src.translate(0, -rank_diff * x))),
+                ]
+                .concat(),
+            )
+        } else {
+            None
+        }
+    } else {
+        Some(rook(board, src))
+    }
+}
+
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     let king_pos = board.current_king();
     let king_attacks = board
@@ -275,7 +346,13 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     // the king must get out of a check
     if let Some(king_attacks) = king_attacks {
         //There is a double check, the king must move
-        if king_attacks.len() >= 2 {}
+        if king_attacks.len() >= 2 {
+            if src == king_pos {
+                return Some(legal_king(board, src));
+            } else {
+                return None;
+            }
+        }
     }
     todo!()
 }

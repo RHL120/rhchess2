@@ -178,6 +178,13 @@ impl Attacks {
     pub fn does_attack(&self, p: Player, s: Square) -> bool {
         self.get_attacks_for(p, s).is_some()
     }
+    /// Returns the square of the piece pinning the piece on `s`
+    pub fn get_pin(&self, p: Player, s: Square) -> Option<Square> {
+        match p {
+            Player::White => self.black_pins.get(&s).map(|&x| x),
+            Player::Black => self.white_pins.get(&s).map(|&x| x),
+        }
+    }
 }
 
 impl Default for Attacks {
