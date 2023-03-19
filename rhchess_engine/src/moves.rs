@@ -337,6 +337,13 @@ fn legal_rook(board: &Board, src: Square) -> Option<Vec<Move>> {
         Some(rook(board, src))
     }
 }
+fn legal_queen(board: &Board, src: Square) -> Option<Vec<Move>> {
+    if board.attacks.get_pin(board.turn, src).is_none() {
+        Some(queen(board, src))
+    } else {
+        legal_rook(board, src).or_else(|| legal_bishop(board, src))
+    }
+}
 
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     let king_pos = board.current_king();
