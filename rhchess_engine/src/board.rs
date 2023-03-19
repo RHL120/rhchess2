@@ -782,7 +782,7 @@ impl Default for Board {
                 owner: Black,
             }),
         ];
-        Self {
+        let mut ret = Self {
             positions,
             turn: White,
             castling_rights: CastlingRights::default(),
@@ -790,6 +790,13 @@ impl Default for Board {
             reversible_moves: 0,
             full_moves: 1,
             attacks: Attacks::default(),
+        };
+        for i in 0..64 {
+            let sq = Square::from_idx(i).unwrap();
+            if let Some(p) = ret.get_piece(sq) {
+                ret.calculate_piece_attack(sq, p);
+            }
         }
+        ret
     }
 }
