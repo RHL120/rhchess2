@@ -383,8 +383,7 @@ fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         board::PieceKind::Rook => legal_rook(board, src),
         board::PieceKind::Queen => legal_queen(board, src),
         board::PieceKind::King => Some(legal_king(board, src)),
-        //board::PieceKind::Pawn => legal_pawn(board, src),
-        _ => todo!(),
+        board::PieceKind::Pawn => legal_pawn(board, src),
     }
 }
 
