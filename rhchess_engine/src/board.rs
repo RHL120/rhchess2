@@ -275,10 +275,15 @@ impl Board {
     }
     pub fn make_move(&mut self, m: moves::Move) {
         self.update_castling(m);
-        log::info!("making move");
         match m {
             moves::Move::Move(_, dst, src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
+                if piece.kind == PieceKind::King {
+                    match self.turn {
+                        Player::Black => self.black_pos = dst,
+                        Player::White => self.white_pos = dst,
+                    };
+                }
                 self.en_passant = if let PieceKind::Pawn = piece.kind {
                     let (init_rank, _) = piece.owner.pawn_info();
                     if src.rank == init_rank && ((dst.rank as i32) - (src.rank as i32)).abs() == 2 {
@@ -575,7 +580,7 @@ impl Board {
             Player::Black => &mut self.attacks.black_attacks,
         };
         let (_, rank_multiple) = p.pawn_info();
-        for i in [-1; 1] {
+        for i in [-1, 1] {
             if let Some(i) = square.translate(i, rank_multiple) {
                 if !r.contains_key(&i) {
                     r.insert(i, HashSet::new());
@@ -600,17 +605,18 @@ impl Board {
         };
     }
     fn update_attacks(&mut self, m: moves::Move, captured: Option<(Piece, Square)>) {
-        log::info!("We recived the move: {:#?}", m);
         match m {
-            moves::Move::Move(_, src, dst) => {
+            moves::Move::Move(_, dst, src) => {
                 self.attacks.clear_attacks_by(src, self.turn);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
+                diff.push((self.get_piece(dst).unwrap(), dst));
                 if let Some((capt, sq)) = captured {
                     self.attacks.clear_attacks_by(sq, capt.owner);
                 }
                 for (piece, sq) in diff {
-                    self.attacks.clear_attacks_by(src, piece.owner);
+                    log::info!("A surrounding piece is the {:#?} on {}", piece, sq);
+                    self.attacks.clear_attacks_by(sq, piece.owner);
                     self.calculate_piece_attack(sq, piece);
                 }
             }

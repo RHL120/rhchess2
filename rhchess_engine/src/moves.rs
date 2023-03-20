@@ -217,8 +217,8 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
     king(board, src)
         .iter()
         .filter_map(|&mv| match mv {
-            Move::Move(_, _, dst) => {
-                if board.attacks.does_attack(board.turn.opposite(), dst) {
+            Move::Move(_, dst, _) => {
+                if !board.attacks.does_attack(board.turn.opposite(), dst) {
                     Some(mv)
                 } else {
                     None
