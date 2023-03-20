@@ -337,11 +337,54 @@ fn legal_rook(board: &Board, src: Square) -> Option<Vec<Move>> {
         Some(rook(board, src))
     }
 }
+
 fn legal_queen(board: &Board, src: Square) -> Option<Vec<Move>> {
     if board.attacks.get_pin(board.turn, src).is_none() {
         Some(queen(board, src))
     } else {
         legal_rook(board, src).or_else(|| legal_bishop(board, src))
+    }
+}
+
+fn legal_pawn(board: &Board, src: Square) -> Option<Vec<Move>> {
+    let (_, rank_multiple) = board.turn.pawn_info();
+    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+        let (_, rank_multiple) = board.turn.pawn_info();
+        let pin_check = |dst| match dst == pinner {
+            true => Some(dst),
+            false => None,
+        };
+        src.translate(-1, rank_multiple)
+            .and_then(pin_check)
+            .or_else(|| src.translate(1, rank_multiple).and_then(pin_check))
+            .map(|x| vec![Move::Move(false, x, src)])
+    } else {
+        let mvs = pawn(board, src)
+            .iter()
+            .filter_map(|&x| match x {
+                r @ Move::EnPassent(_) => {
+                    if board.attacks.can_en_passant {
+                        Some(r)
+                    } else {
+                        None
+                    }
+                }
+                r => Some(r),
+            })
+            .collect();
+        Some(mvs)
+    }
+}
+
+fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
+    match board.get_piece(src).as_ref()?.kind {
+        board::PieceKind::Knight => legal_knight(board, src),
+        board::PieceKind::Bishop => legal_bishop(board, src),
+        board::PieceKind::Rook => legal_rook(board, src),
+        board::PieceKind::Queen => legal_queen(board, src),
+        board::PieceKind::King => Some(legal_king(board, src)),
+        //board::PieceKind::Pawn => legal_pawn(board, src),
+        _ => todo!(),
     }
 }
 
@@ -359,6 +402,8 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             } else {
                 return None;
             }
+        } else {
+            return legal_moves(board, src);
         }
     }
     todo!()
