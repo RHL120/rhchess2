@@ -387,6 +387,14 @@ fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     }
 }
 
+fn blocks(dst: Square, attacker: Square, attacked: Square) -> bool {
+    let rank_diff = (attacker.rank as i32 - attacked.rank as i32).signum();
+    let file_diff = (attacker.file as i32 - attacked.file as i32).signum();
+    (1..8)
+        .filter_map(|x| attacked.translate(file_diff * x, rank_diff * x))
+        .any(|x| x == dst)
+}
+
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     let king_pos = board.current_king();
     let king_attacks = board
@@ -394,16 +402,44 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         .get_attacks_for(board.turn.opposite(), king_pos);
     // the king must get out of a check
     if let Some(king_attacks) = king_attacks {
-        //There is a double check, the king must move
         if king_attacks.len() >= 2 {
+            //There is a double check, the king must move
             if src == king_pos {
                 return Some(legal_king(board, src));
             } else {
                 return None;
             }
         } else {
-            return legal_moves(board, src);
+            let moves = legal_moves(board, src)?;
+            //The king can move
+            if src == king_pos {
+                return Some(moves);
+            }
+            //A piece can capture
+            let &attacker = king_attacks.iter().next().unwrap();
+            let moves = moves.iter().filter_map(|&mv| match mv {
+                Move::Move(_, dst, _) => {
+                    //The attacker can be captured
+                    if dst == attacker {
+                        Some(mv)
+                    } else if blocks(dst, attacker, king_pos) {
+                        Some(mv)
+                    } else {
+                        None
+                    }
+                }
+                Move::EnPassent(_) => {
+                    //The attacker can be captured
+                    if board.en_passant.unwrap() == attacker {
+                        Some(mv)
+                    } else {
+                        None
+                    }
+                }
+                Move::Castle(_) => unreachable!(),
+            });
+            return Some(moves.collect());
         }
     }
-    todo!()
+    return legal_moves(board, src);
 }
