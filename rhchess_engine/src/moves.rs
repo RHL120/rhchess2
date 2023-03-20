@@ -347,7 +347,6 @@ fn legal_queen(board: &Board, src: Square) -> Option<Vec<Move>> {
 }
 
 fn legal_pawn(board: &Board, src: Square) -> Option<Vec<Move>> {
-    let (_, rank_multiple) = board.turn.pawn_info();
     if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
         let (_, rank_multiple) = board.turn.pawn_info();
         let pin_check = |dst| match dst == pinner {
