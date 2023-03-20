@@ -24,7 +24,7 @@ pub fn PromotionMenu(props: &Props) -> Html {
                     let onclick = move |_: MouseEvent| on_choice.emit(kind);
                     let img = format!("piece_set/{}{}.svg", player, name);
                     html! {
-                        <img src={img} {onclick}/>
+                        <img style="width:20%" src={img} {onclick}/>
                     }
                 }).collect::<Html>()
         }
