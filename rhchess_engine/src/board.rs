@@ -363,10 +363,12 @@ impl Board {
     pub fn make_promotion(&mut self, m: moves::Move, kind: PieceKind) {
         match m {
             moves::Move::Move(_, dst, _) => {
-                self.positions[(8 * dst.rank + dst.file) as usize] = Some(Piece {
+                let p = Piece {
                     kind,
                     owner: self.turn,
-                })
+                };
+                self.positions[(8 * dst.rank + dst.file) as usize] = Some(p);
+                self.calculate_piece_attack(dst, p);
             }
             _ => unreachable!(),
         }
