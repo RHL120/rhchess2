@@ -189,6 +189,20 @@ impl Attacks {
         }
         pinner
     }
+    fn clear_pins_by(&mut self, p: Player, s: Square) {
+        log::info!("Clearing pins by {:#?} {}", p, s);
+        let pins = match p {
+            Player::White => &mut self.white_pins,
+            Player::Black => &mut self.black_pins,
+        };
+        let pos = pins
+            .iter()
+            .find_map(|(&k, &v)| if s == v { Some(k) } else { None });
+        if let Some(pos) = pos {
+            log::info!("cleared pin: {:#?}, {}", p, s);
+            pins.remove(&pos);
+        }
+    }
 }
 
 impl Default for Attacks {
@@ -581,6 +595,8 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(x, -x))),
             self.to_attack((1..8).map(|x| square.translate(x, x))),
         ];
+        log::info!("updating {}", square);
+        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -667,7 +683,7 @@ impl Board {
                     self.attacks.clear_attacks_by(sq, capt.owner);
                 }
                 for (piece, sq) in diff {
-                    log::info!("A surrounding piece is the {:#?} on {}", piece, sq);
+                    log::info!("{} surrounds {}", sq, dst);
                     self.attacks.clear_attacks_by(sq, piece.owner);
                     self.calculate_piece_attack(sq, piece);
                 }
