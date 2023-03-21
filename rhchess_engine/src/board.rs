@@ -141,11 +141,11 @@ pub struct Attacks {
     /// The key contains the squares that black attacks and the value contains
     /// the squares from which black attacks them
     pub black_attacks: HashMap<Square, HashSet<Square>>,
-    /// The key contains the squares that contain a white piece that absolutely pin
-    /// a black piece and the value contains the black absolutely pinned piece
+    /// The key is a square that contains a white piece pinned by a black piece
+    /// found on the value
     pub white_pins: HashMap<Square, Square>,
-    /// The key contains the squares that contain a white piece that absolutely pin
-    /// a black piece and the value contains the black absolutely pinned piece
+    /// The key is a square that contains a black piece pinned by a black piece
+    /// found on the value
     pub black_pins: HashMap<Square, Square>,
     ///This bool is true if the player can take a pawn via en passant without
     ///puting their own king in check
@@ -179,11 +179,15 @@ impl Attacks {
         self.get_attacks_for(p, s).is_some()
     }
     /// Returns the square of the piece pinning the piece on `s`
-    pub fn get_pin(&self, p: Player, s: Square) -> Option<Square> {
-        match p {
+    pub fn get_pinner(&self, p: Player, s: Square) -> Option<Square> {
+        let pinner = match p {
             Player::White => self.black_pins.get(&s).map(|&x| x),
             Player::Black => self.white_pins.get(&s).map(|&x| x),
+        };
+        if let Some(pinner) = pinner {
+            log::info!("The pinner is: {}", pinner);
         }
+        pinner
     }
 }
 
@@ -534,6 +538,42 @@ impl Board {
         }
         ret
     }
+    fn get_pin(
+        &self,
+        sq: Square,
+        diff_check: impl Fn(i32, i32) -> bool,
+        c: Player,
+    ) -> Option<Square> {
+        let opp_king_pos = match c {
+            Player::White => self.black_pos,
+            Player::Black => self.white_pos,
+        };
+        let rank_diff = opp_king_pos.rank as i32 - sq.rank as i32;
+        let file_diff = opp_king_pos.file as i32 - sq.file as i32;
+        if diff_check(rank_diff, file_diff) {
+            let rank_diff = rank_diff.signum();
+            let file_diff = file_diff.signum();
+            let seps: Vec<(Square, Piece)> = (1..8)
+                .map_while(|x| {
+                    let sq = sq
+                        .translate(x * file_diff, x * rank_diff)
+                        .expect("While looking for a pinned piece, reached edge before king");
+                    if sq == opp_king_pos {
+                        None
+                    } else {
+                        Some((sq, self.get_piece(sq)))
+                    }
+                })
+                .filter_map(|(sq, p)| Some((sq, p?)))
+                .collect();
+            match seps.len() {
+                1 => Some(seps.first().unwrap().0),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
     fn update_bishop_attacks(&mut self, square: Square, p: Player) {
         let attacks = [
             self.to_attack((1..8).map(|x| square.translate(-x, -x))),
@@ -541,6 +581,12 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(x, -x))),
             self.to_attack((1..8).map(|x| square.translate(x, x))),
         ];
+        if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
+            match p {
+                Player::White => self.attacks.white_pins.insert(pin, square),
+                Player::Black => self.attacks.black_pins.insert(pin, square),
+            };
+        }
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
@@ -561,6 +607,12 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(-x, 0))),
             self.to_attack((1..8).map(|x| square.translate(0, -x))),
         ];
+        if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
+            match p {
+                Player::White => self.attacks.white_pins.insert(square, pin),
+                Player::Black => self.attacks.black_pins.insert(square, pin),
+            };
+        }
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,

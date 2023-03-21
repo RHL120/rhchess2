@@ -267,87 +267,86 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
         .collect()
 }
 
-fn legal_knight(board: &Board, src: Square) -> Option<Vec<Move>> {
-    if board.attacks.get_pin(board.turn, src).is_none() {
-        Some(knight(board, src))
+fn legal_knight(board: &Board, src: Square) -> Vec<Move> {
+    if board.attacks.get_pinner(board.turn, src).is_none() {
+        knight(board, src)
     } else {
-        None
+        vec![]
     }
 }
 
-fn legal_bishop(board: &Board, src: Square) -> Option<Vec<Move>> {
-    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+fn legal_bishop(board: &Board, src: Square) -> Vec<Move> {
+    if let Some(pinner) = board.attacks.get_pinner(board.turn, src) {
         let rank_diff = pinner.rank as i32 - src.rank as i32;
         let file_diff = pinner.file as i32 - src.file as i32;
         //The pinner is on a diagonal
         if rank_diff.abs() == file_diff.abs() {
             let rank_diff = rank_diff.signum();
             let file_diff = file_diff.signum();
-            Some(
-                [
-                    to_moves(
-                        board,
-                        src,
-                        (1..8).map(|x| src.translate(file_diff * x, rank_diff * x)),
-                    ),
-                    to_moves(
-                        board,
-                        src,
-                        (1..8).map(|x| src.translate(-file_diff * x, -rank_diff * x)),
-                    ),
-                ]
-                .concat(),
-            )
+            [
+                to_moves(
+                    board,
+                    src,
+                    (1..8).map(|x| src.translate(file_diff * x, rank_diff * x)),
+                ),
+                to_moves(
+                    board,
+                    src,
+                    (1..8).map(|x| src.translate(-file_diff * x, -rank_diff * x)),
+                ),
+            ]
+            .concat()
         } else {
-            None
+            Vec::new()
         }
     } else {
-        Some(bishop(board, src))
+        bishop(board, src)
     }
 }
 
-fn legal_rook(board: &Board, src: Square) -> Option<Vec<Move>> {
-    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+fn legal_rook(board: &Board, src: Square) -> Vec<Move> {
+    if let Some(pinner) = board.attacks.get_pinner(board.turn, src) {
         let rank_diff = pinner.rank as i32 - src.rank as i32;
         let file_diff = pinner.file as i32 - src.file as i32;
         //The pinner is vertical
         if rank_diff == 0 {
             let file_diff = file_diff.signum();
-            Some(
-                [
-                    to_moves(board, src, (1..8).map(|x| src.translate(0, file_diff * x))),
-                    to_moves(board, src, (1..8).map(|x| src.translate(0, -file_diff * x))),
-                ]
-                .concat(),
-            )
+            [
+                to_moves(board, src, (1..8).map(|x| src.translate(0, file_diff * x))),
+                to_moves(board, src, (1..8).map(|x| src.translate(0, -file_diff * x))),
+            ]
+            .concat()
         } else if file_diff == 0 {
             //The pinner is horizontal
             let rank_diff = rank_diff.signum();
-            Some(
-                [
-                    to_moves(board, src, (1..8).map(|x| src.translate(0, rank_diff * x))),
-                    to_moves(board, src, (1..8).map(|x| src.translate(0, -rank_diff * x))),
-                ]
-                .concat(),
-            )
+            [
+                to_moves(board, src, (1..8).map(|x| src.translate(0, rank_diff * x))),
+                to_moves(board, src, (1..8).map(|x| src.translate(0, -rank_diff * x))),
+            ]
+            .concat()
         } else {
-            None
+            Vec::new()
         }
     } else {
-        Some(rook(board, src))
+        rook(board, src)
     }
 }
 
-fn legal_queen(board: &Board, src: Square) -> Option<Vec<Move>> {
-    if board.attacks.get_pin(board.turn, src).is_none() {
-        Some(queen(board, src))
+fn legal_queen(board: &Board, src: Square) -> Vec<Move> {
+    if board.attacks.get_pinner(board.turn, src).is_none() {
+        queen(board, src)
     } else {
-        legal_rook(board, src).or_else(|| legal_bishop(board, src))
+        let rook = legal_rook(board, src);
+        if rook.is_empty() {
+            legal_bishop(board, src)
+        } else {
+            rook
+        }
     }
 }
 
-fn legal_pawn(board: &Board, src: Square) -> Option<Vec<Move>> {
-    if let Some(pinner) = board.attacks.get_pin(board.turn, src) {
+fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
+    if let Some(pinner) = board.attacks.get_pinner(board.turn, src) {
         let (_, rank_multiple) = board.turn.pawn_info();
         let pin_check = |dst| match dst == pinner {
             true => Some(dst),
@@ -357,6 +356,7 @@ fn legal_pawn(board: &Board, src: Square) -> Option<Vec<Move>> {
             .and_then(pin_check)
             .or_else(|| src.translate(1, rank_multiple).and_then(pin_check))
             .map(|x| vec![Move::Move(false, x, src)])
+            .unwrap_or(vec![])
     } else {
         let mvs = pawn(board, src)
             .iter()
@@ -371,19 +371,19 @@ fn legal_pawn(board: &Board, src: Square) -> Option<Vec<Move>> {
                 r => Some(r),
             })
             .collect();
-        Some(mvs)
+        mvs
     }
 }
 
 fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
-    match board.get_piece(src).as_ref()?.kind {
+    Some(match board.get_piece(src).as_ref()?.kind {
         board::PieceKind::Knight => legal_knight(board, src),
         board::PieceKind::Bishop => legal_bishop(board, src),
         board::PieceKind::Rook => legal_rook(board, src),
         board::PieceKind::Queen => legal_queen(board, src),
-        board::PieceKind::King => Some(legal_king(board, src)),
+        board::PieceKind::King => legal_king(board, src),
         board::PieceKind::Pawn => legal_pawn(board, src),
-    }
+    })
 }
 
 fn blocks(dst: Square, attacker: Square, attacked: Square) -> bool {
