@@ -315,7 +315,7 @@ impl Board {
                 self.positions[(src.rank * 8 + src.file) as usize] = None;
                 let capt = self.positions[(dst.rank * 8 + dst.file) as usize];
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
-                self.update_attacks(m, capt.map(|x| (x, src)))
+                self.update_attacks(m, capt.map(|x| (x, dst)))
             }
             moves::Move::EnPassent(src) => {
                 let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
@@ -535,6 +535,7 @@ impl Board {
             }
             r.get_mut(&i).unwrap().insert(square);
         }
+        self.on_king_update_pins(square)
     }
     fn to_attack(&self, line: impl Iterator<Item = Option<Square>>) -> HashSet<Square> {
         let mut ret = HashSet::new();
@@ -672,6 +673,61 @@ impl Board {
             PieceKind::Pawn => self.update_pawn_attacks(square, pl),
         };
     }
+    fn pinner_pinned(
+        &self,
+        rng: impl Iterator<Item = Square>,
+        kinds: &[PieceKind],
+    ) -> Option<(Square, Square)> {
+        let mut pinner = None;
+        let mut pinned = None;
+        for i in rng {
+            if let Some(piece) = self.get_piece(i) {
+                if piece.owner == self.turn {
+                    if pinned.is_some() {
+                        break;
+                    }
+                    pinned = Some(i);
+                } else {
+                    pinned?;
+                    if kinds.contains(&piece.kind) {
+                        pinner = Some(i);
+                    }
+                    break;
+                }
+            }
+        }
+        Some((pinner?, pinned?))
+    }
+    fn on_king_update_pins(&mut self, sq: Square) {
+        use PieceKind::{Bishop, Queen, Rook};
+        let mut ret: Vec<(Square, Square)> = [
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, 0)), &[Rook, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, x)), &[Rook, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, 0)), &[Rook, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, -x)), &[Rook, Queen]),
+        ]
+        .iter()
+        .filter_map(|&x| x)
+        .collect();
+        let mut bishop: Vec<(Square, Square)> = [
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, -x)), &[Bishop, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, x)), &[Bishop, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, -x)), &[Bishop, Queen]),
+            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, x)), &[Bishop, Queen]),
+        ]
+        .iter()
+        .filter_map(|&x| x)
+        .collect();
+        ret.append(&mut bishop);
+        let pins = match self.turn {
+            Player::White => &mut self.attacks.black_pins,
+            Player::Black => &mut self.attacks.white_pins,
+        };
+        pins.clear();
+        for (pinner, pinned) in ret {
+            pins.insert(pinned, pinner);
+        }
+    }
     fn update_attacks(&mut self, m: moves::Move, captured: Option<(Piece, Square)>) {
         match m {
             moves::Move::Move(_, dst, src) => {
@@ -680,6 +736,7 @@ impl Board {
                 diff.append(&mut self.surrounding_pieces(dst));
                 diff.push((self.get_piece(dst).unwrap(), dst));
                 if let Some((capt, sq)) = captured {
+                    log::info!("piece capt: {} {:#?}", sq, capt.owner);
                     self.attacks.clear_attacks_by(sq, capt.owner);
                 }
                 for (piece, sq) in diff {

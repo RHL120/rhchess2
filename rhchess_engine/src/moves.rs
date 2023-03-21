@@ -406,7 +406,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             if src == king_pos {
                 return Some(legal_king(board, src));
             } else {
-                return None;
+                return Some(Vec::new());
             }
         } else {
             let moves = legal_moves(board, src)?;
