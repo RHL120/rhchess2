@@ -390,7 +390,14 @@ fn blocks(dst: Square, attacker: Square, attacked: Square) -> bool {
     let rank_diff = (attacker.rank as i32 - attacked.rank as i32).signum();
     let file_diff = (attacker.file as i32 - attacked.file as i32).signum();
     (1..8)
-        .filter_map(|x| attacked.translate(file_diff * x, rank_diff * x))
+        .map_while(|x| {
+            let sq = attacked.translate(file_diff * x, rank_diff * x)?;
+            if sq == attacker {
+                None
+            } else {
+                Some(sq)
+            }
+        })
         .any(|x| x == dst)
 }
 

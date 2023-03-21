@@ -599,7 +599,6 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(x, x))),
         ];
         log::info!("updating {}", square);
-        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -626,10 +625,11 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(-x, 0))),
             self.to_attack((1..8).map(|x| square.translate(0, -x))),
         ];
+        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
             match p {
-                Player::White => self.attacks.white_pins.insert(square, pin),
-                Player::Black => self.attacks.black_pins.insert(square, pin),
+                Player::White => self.attacks.white_pins.insert(pin, square),
+                Player::Black => self.attacks.black_pins.insert(pin, square),
             };
         }
         let r = match p {
