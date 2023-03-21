@@ -323,9 +323,9 @@ impl Board {
                 let en_passant = self.en_passant.unwrap();
                 let dst = en_passant.translate(0, piece.owner.pawn_info().1).unwrap();
                 let capt = self.positions[(en_passant.rank * 8 + en_passant.file) as usize];
-                self.update_attacks(m, capt.map(|x| (x, src)));
-                self.positions[(en_passant.rank * 8 + en_passant.file) as usize] = None;
                 self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
+                self.positions[(en_passant.rank * 8 + en_passant.file) as usize] = None;
+                self.update_attacks(m, capt.map(|x| (x, en_passant)));
                 self.en_passant = None;
             }
             moves::Move::Castle(king_side) => {
@@ -734,6 +734,7 @@ impl Board {
                 self.attacks.clear_attacks_by(src, self.turn);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
+                log::info!("Got dst: {}", dst);
                 diff.push((self.get_piece(dst).unwrap(), dst));
                 if let Some((capt, sq)) = captured {
                     log::info!("piece capt: {} {:#?}", sq, capt.owner);
@@ -766,7 +767,7 @@ impl Board {
             moves::Move::EnPassent(src) => {
                 let sq = captured.unwrap().1;
                 let dst = sq.translate(0, self.turn.pawn_info().1).unwrap();
-                self.update_attacks(moves::Move::Move(false, src, dst), captured);
+                self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
         log::info!("{:#?}", self.attacks);
