@@ -226,6 +226,12 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
             }
             Move::Castle(king_side) => {
                 let king_rank = board.turn.king_rank();
+                if board
+                    .attacks
+                    .does_attack(board.turn.opposite(), board.current_king())
+                {
+                    return None;
+                }
                 if king_side {
                     let first = Square {
                         rank: king_rank,
