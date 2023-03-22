@@ -6,7 +6,7 @@ fn parse_positions(
     let mut positions: [Option<board::Piece>; 64] = [None; 64];
     let mut white_position = None;
     let mut black_position = None;
-    for rank in (0..7).rev() {
+    for rank in (0..=7).rev() {
         let mut was_digit = false;
         let mut file = 0;
         while file <= 7 {
@@ -44,13 +44,15 @@ fn parse_positions(
                         };
                         King
                     }
-                    _ => return None,
+                    _ => {
+                        return None;
+                    }
                 };
                 positions[(rank * 8 + file) as usize] = Some(board::Piece { owner, kind });
                 file += 1;
             }
         }
-        if file != 7 {
+        if rank > 0 {
             if let Some('/') = string.chars().next() {
                 string = string.strip_prefix('/').unwrap();
             } else {
@@ -105,7 +107,7 @@ fn parse_en_passnt(string: &str) -> Option<Option<board::Square>> {
     Some(Some(Square::new(file, rank as u8)?))
 }
 
-pub fn parse_fn(string: &str) -> Option<board::Board> {
+pub fn parse_fen(string: &str) -> Option<board::Board> {
     let sections = string
         .split(|x: char| x.is_whitespace())
         .collect::<Vec<&str>>();
