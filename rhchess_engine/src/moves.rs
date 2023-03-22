@@ -362,7 +362,25 @@ fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
             .iter()
             .filter_map(|&x| match x {
                 r @ Move::EnPassent(_) => {
-                    if board.attacks.can_en_passant {
+                    let x = (0..8)
+                        .filter_map(|x| {
+                            let sq = Square::new(x, board.en_passant.unwrap().rank)?;
+                            Some((sq, board.get_piece(sq)?))
+                        })
+                        .collect::<Vec<(board::Square, board::Piece)>>();
+                    let pinned = x.chunks(4).any(|chunk| {
+                        log::info!("{:#?}", chunk);
+                        use board::PieceKind::*;
+                        chunk.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
+                            && chunk
+                                .iter()
+                                .any(|(_, p)| p.kind == King && p.owner == board.turn)
+                            && chunk.iter().any(|(_, p)| {
+                                (p.kind == Queen || p.kind == Rook)
+                                    && p.owner == board.turn.opposite()
+                            })
+                    });
+                    if !pinned {
                         Some(r)
                     } else {
                         None
