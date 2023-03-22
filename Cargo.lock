@@ -510,7 +510,9 @@ dependencies = [
 name = "rhchess_engine"
 version = "0.1.0"
 dependencies = [
+ "log",
  "thiserror",
+ "wasm-logger",
 ]
 
 [[package]]

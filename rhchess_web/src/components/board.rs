@@ -58,7 +58,7 @@ pub fn Board() -> Html {
                     let board = ref_board.clone();
                     let on_click = match piece.map(|x| x.owner == board.lock().unwrap().turn) {
                         Some(true) => Callback::from(move |_| {
-                            targets.set(moves::get_move(&b2.lock().unwrap(), square).unwrap());
+                            targets.set(moves::get_legal_moves(&b2.lock().unwrap(), square).unwrap());
                             selected.set(Some(square));
                         }),
                         _ => {
