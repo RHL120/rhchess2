@@ -99,7 +99,7 @@ impl std::fmt::Debug for Square {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CastlingRights {
     pub white_queen: bool,
     pub white_king: bool,
@@ -133,7 +133,7 @@ impl Default for CastlingRights {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 /// Keeps track of pinned pieces, attacked squares and en passent checks
 pub struct Attacks {
     /// The key contains the squares that white attacks and the value contains
@@ -196,9 +196,8 @@ impl Attacks {
         }
     }
 }
-
 /// The board representation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     /// the position of the black king
     pub black_pos: Square,

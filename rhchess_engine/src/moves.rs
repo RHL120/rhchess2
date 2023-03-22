@@ -1,6 +1,8 @@
 use crate::board;
 use crate::board::Board;
 use crate::board::Square;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Move {
@@ -469,4 +471,14 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         }
     }
     legal_moves(board, src)
+}
+pub fn get_all_legal_moves(board: &Board, src: Square) -> HashMap<Square, Vec<Move>> {
+    let mut ret = HashMap::new();
+    for i in 0..64 {
+        let sq = Square::from_idx(i).unwrap();
+        if let Some(moves) = get_legal_moves(board, sq) {
+            ret.insert(sq, moves);
+        }
+    }
+    ret
 }
