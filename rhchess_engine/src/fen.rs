@@ -13,7 +13,7 @@ fn parse_positions(
             let p = string.chars().next()?;
             string = string.strip_prefix(p).unwrap();
             if let Some(digit) = p.to_digit(10) {
-                if was_digit || digit < 1 || digit > 8 {
+                if was_digit || !(1..=8).contains(&digit) {
                     return None;
                 }
                 file += digit;
