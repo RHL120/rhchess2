@@ -132,7 +132,7 @@ impl Default for CastlingRights {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 /// Keeps track of pinned pieces, attacked squares and en passent checks
 pub struct Attacks {
     /// The key contains the squares that white attacks and the value contains
@@ -158,7 +158,7 @@ impl Attacks {
         let mut to_delete = Vec::new();
         for (key, value) in &mut *attacks {
             value.remove(&square);
-            if value.len() == 0 {
+            if value.is_empty() {
                 to_delete.push(*key);
             }
         }
@@ -166,7 +166,7 @@ impl Attacks {
             attacks.remove(&i);
         }
     }
-    pub fn get_attacks_for<'a>(&'a self, p: Player, s: Square) -> Option<&'a HashSet<Square>> {
+    pub fn get_attacks_for(&self, p: Player, s: Square) -> Option<&HashSet<Square>> {
         match p {
             Player::White => self.white_attacks.get(&s),
             Player::Black => self.black_attacks.get(&s),
@@ -178,8 +178,8 @@ impl Attacks {
     /// Returns the square of the piece pinning the piece on `s`
     pub fn get_pinner(&self, p: Player, s: Square) -> Option<Square> {
         match p {
-            Player::White => self.black_pins.get(&s).map(|&x| x),
-            Player::Black => self.white_pins.get(&s).map(|&x| x),
+            Player::White => self.black_pins.get(&s).copied(),
+            Player::Black => self.white_pins.get(&s).copied(),
         }
     }
     fn clear_pins_by(&mut self, p: Player, s: Square) {
@@ -192,17 +192,6 @@ impl Attacks {
             .find_map(|(&k, &v)| if s == v { Some(k) } else { None });
         if let Some(pos) = pos {
             pins.remove(&pos);
-        }
-    }
-}
-
-impl Default for Attacks {
-    fn default() -> Self {
-        Self {
-            white_attacks: HashMap::new(),
-            black_attacks: HashMap::new(),
-            white_pins: HashMap::new(),
-            black_pins: HashMap::new(),
         }
     }
 }
@@ -497,9 +486,7 @@ impl Board {
         .filter_map(|&x| x)
         .collect();
         for i in attacks {
-            if !r.contains_key(&i) {
-                r.insert(i, HashSet::new());
-            }
+            r.entry(i).or_insert_with(HashSet::new);
             r.get_mut(&i).unwrap().insert(square);
         }
     }
@@ -522,9 +509,7 @@ impl Board {
         .filter_map(|&x| x)
         .collect();
         for i in attacks {
-            if !r.contains_key(&i) {
-                r.insert(i, HashSet::new());
-            }
+            r.entry(i).or_insert_with(HashSet::new);
             r.get_mut(&i).unwrap().insert(square);
         }
         self.on_king_update_pins(square)
@@ -600,9 +585,7 @@ impl Board {
         };
         for i in attacks {
             for j in i {
-                if !r.contains_key(&j) {
-                    r.insert(j, HashSet::new());
-                }
+                r.entry(j).or_insert_with(HashSet::new);
                 r.get_mut(&j).unwrap().insert(square);
             }
         }
@@ -627,9 +610,7 @@ impl Board {
         };
         for i in attacks {
             for j in i {
-                if !r.contains_key(&j) {
-                    r.insert(j, HashSet::new());
-                }
+                r.entry(j).or_insert_with(HashSet::new);
                 r.get_mut(&j).unwrap().insert(square);
             }
         }
@@ -642,9 +623,7 @@ impl Board {
         let (_, rank_multiple) = p.pawn_info();
         for i in [-1, 1] {
             if let Some(i) = square.translate(i, rank_multiple) {
-                if !r.contains_key(&i) {
-                    r.insert(i, HashSet::new());
-                }
+                r.entry(i).or_insert_with(HashSet::new);
                 r.get_mut(&i).unwrap().insert(square);
             }
         }

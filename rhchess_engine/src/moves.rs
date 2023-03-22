@@ -369,7 +369,6 @@ fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
                         })
                         .collect::<Vec<(board::Square, board::Piece)>>();
                     let pinned = x.chunks(4).any(|chunk| {
-                        log::info!("{:#?}", chunk);
                         use board::PieceKind::*;
                         chunk.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
                             && chunk
@@ -444,9 +443,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             let moves = moves.iter().filter_map(|&mv| match mv {
                 Move::Move(_, dst, _) => {
                     //The attacker can be captured
-                    if dst == attacker {
-                        Some(mv)
-                    } else if blocks(dst, attacker, king_pos) {
+                    if dst == attacker || blocks(dst, attacker, king_pos) {
                         Some(mv)
                     } else {
                         None
@@ -465,5 +462,5 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             return Some(moves.collect());
         }
     }
-    return legal_moves(board, src);
+    legal_moves(board, src)
 }
