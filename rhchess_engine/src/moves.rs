@@ -1,7 +1,6 @@
 use crate::board;
 use crate::board::Board;
 use crate::board::Square;
-
 #[derive(Clone, Copy, Debug)]
 pub enum Move {
     /// Castle(king_side)
@@ -239,7 +238,7 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
                     };
                     let second = Square {
                         rank: king_rank,
-                        file: 5,
+                        file: 6,
                     };
                     let opp = board.turn.opposite();
                     if board.attacks.does_attack(opp, first)
@@ -318,8 +317,8 @@ fn legal_rook(board: &Board, src: Square) -> Vec<Move> {
         if rank_diff == 0 {
             let file_diff = file_diff.signum();
             [
-                to_moves(board, src, (1..8).map(|x| src.translate(0, file_diff * x))),
-                to_moves(board, src, (1..8).map(|x| src.translate(0, -file_diff * x))),
+                to_moves(board, src, (1..8).map(|x| src.translate(file_diff * x, 0))),
+                to_moves(board, src, (1..8).map(|x| src.translate(-file_diff * x, 0))),
             ]
             .concat()
         } else if file_diff == 0 {
@@ -374,17 +373,25 @@ fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
                             Some((sq, board.get_piece(sq)?))
                         })
                         .collect::<Vec<(board::Square, board::Piece)>>();
-                    let pinned = x.chunks(4).any(|chunk| {
-                        use board::PieceKind::*;
-                        chunk.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
-                            && chunk
+                    use board::PieceKind::*;
+                    let mut pinned = false;
+                    for i in 0..x.len() {
+                        let sub = match x.get(i..i + 4) {
+                            Some(x) => x,
+                            None => break,
+                        };
+                        pinned = sub.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
+                            && sub.iter().any(|&(sq, _)| sq == src)
+                            && sub
                                 .iter()
-                                .any(|(_, p)| p.kind == King && p.owner == board.turn)
-                            && chunk.iter().any(|(_, p)| {
-                                (p.kind == Queen || p.kind == Rook)
-                                    && p.owner == board.turn.opposite()
-                            })
-                    });
+                                .any(|&(_, p)| p.kind == King && p.owner == board.turn)
+                            && sub.iter().any(|&(_, p)| {
+                                p.owner != board.turn && (p.kind == Rook || p.kind == Queen)
+                            });
+                        if pinned {
+                            break;
+                        }
+                    }
                     if !pinned {
                         Some(r)
                     } else {
@@ -440,16 +447,39 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             }
         } else {
             let moves = legal_moves(board, src)?;
+            let &attacker = king_attacks.iter().next().unwrap();
+            let attack_piece = board.get_piece(attacker).unwrap();
+            use board::PieceKind::*;
             //The king can move
             if src == king_pos {
+                //If the attacker is a sliding piece, the king can't stay
+                //on the line attacked by the piece
+                if [Rook, Queen, Bishop].contains(&attack_piece.kind) {
+                    let rank_diff = (king_pos.rank as i32 - attacker.rank as i32).signum();
+                    let file_diff = (king_pos.file as i32 - attacker.file as i32).signum();
+                    let moves = moves
+                        .iter()
+                        .filter(|mv| {
+                            let dst = match mv {
+                                Move::Move(_, dst, _) => dst,
+                                _ => unreachable!(),
+                            };
+                            !(1..8)
+                                .filter_map(|x| attacker.translate(file_diff * x, rank_diff * x))
+                                .any(|x| x == *dst)
+                        })
+                        .copied()
+                        .collect();
+                    return Some(moves);
+                }
                 return Some(moves);
             }
             //A piece can capture
-            let &attacker = king_attacks.iter().next().unwrap();
             let moves = moves.iter().filter_map(|&mv| match mv {
                 Move::Move(_, dst, _) => {
+                    let apk = board.get_piece(attacker).unwrap().kind;
                     //The attacker can be captured
-                    if dst == attacker || blocks(dst, attacker, king_pos) {
+                    if dst == attacker || (apk != Knight && blocks(dst, attacker, king_pos)) {
                         Some(mv)
                     } else {
                         None
@@ -469,4 +499,146 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         }
     }
     legal_moves(board, src)
+}
+pub fn get_all_legal_moves(board: &Board) -> Vec<Move> {
+    let mut ret = Vec::new();
+    for i in 0..64 {
+        let sq = Square::from_idx(i).unwrap();
+        if let Some(p) = board.get_piece(sq) {
+            if p.owner == board.turn {
+                ret.append(&mut get_legal_moves(board, sq).unwrap());
+            }
+        }
+    }
+    ret
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::board::PieceKind;
+
+    fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) -> String {
+        match m {
+            Move::Move(_, dst, src) => {
+                let r = format!("{}{}", src, dst);
+                if let Some(promote) = promote {
+                    let piece = match promote {
+                        board::PieceKind::Pawn => 'p',
+                        board::PieceKind::Rook => 'r',
+                        board::PieceKind::Queen => 'q',
+                        board::PieceKind::Knight => 'n',
+                        board::PieceKind::King => 'n',
+                        board::PieceKind::Bishop => 'b',
+                    };
+                    format!("{}{}", r, piece)
+                } else {
+                    r
+                }
+            }
+            Move::Castle(king) => {
+                if king {
+                    let king = b.current_king();
+                    format!(
+                        "{}{}",
+                        king,
+                        board::Square {
+                            rank: king.rank,
+                            file: 6,
+                        },
+                    )
+                } else {
+                    let rank = b.turn.opposite().king_rank();
+                    let king = Square { rank, file: 4 };
+                    format!("{}{}", king, board::Square { rank, file: 2 })
+                }
+            }
+            Move::EnPassent(src) => {
+                let dst = b.en_passant.unwrap();
+                format!("{}{}", src, dst)
+            }
+        }
+    }
+
+    use super::*;
+    fn perft(board: &Board, depth: u32, og_d: u32) -> usize {
+        if depth == 0 {
+            return 1;
+        }
+        let mut ret = 0;
+        for mv in get_all_legal_moves(board) {
+            if board.is_promotion(mv) {
+                for i in [
+                    PieceKind::Queen,
+                    PieceKind::Rook,
+                    PieceKind::Bishop,
+                    PieceKind::Knight,
+                ] {
+                    let mut board = board.clone();
+                    board.make_move(mv);
+                    board.make_promotion(mv, i);
+                    board.switch_player();
+                    let count = perft(&board, depth - 1, og_d);
+                    if depth == og_d {
+                        println!("{}: {}", display_move(&board, mv, Some(i)), count);
+                    }
+                    ret += count
+                }
+            } else {
+                let mut board = board.clone();
+                board.make_move(mv);
+                board.switch_player();
+                let count = perft(&board, depth - 1, og_d);
+                if depth == og_d {
+                    println!("{}: {}", display_move(&board, mv, None), count);
+                }
+                ret += count;
+            }
+        }
+        ret
+    }
+    #[test]
+    fn initial_postion() {
+        let ret = perft(&board::Board::default(), 3, 3);
+        assert_eq!(ret, 8902);
+    }
+    #[test]
+    fn position2() {
+        let ret = perft(
+            &board::Board::new(
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            ),
+            3,
+            3,
+        );
+        assert_eq!(ret, 97862);
+    }
+    #[test]
+    fn position3() {
+        let ret = perft(
+            &board::Board::new("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"),
+            4,
+            4,
+        );
+        assert_eq!(ret, 43238);
+    }
+    #[test]
+    fn position5() {
+        let ret = perft(
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "),
+            3,
+            3,
+        );
+        assert_eq!(ret, 62379);
+    }
+    #[test]
+    fn position6() {
+        let ret = perft(
+            &board::Board::new(
+                "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+            ),
+            3,
+            3,
+        );
+        assert_eq!(ret, 89890);
+    }
 }

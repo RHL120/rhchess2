@@ -99,7 +99,7 @@ impl std::fmt::Debug for Square {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CastlingRights {
     pub white_queen: bool,
     pub white_king: bool,
@@ -133,7 +133,7 @@ impl Default for CastlingRights {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 /// Keeps track of pinned pieces, attacked squares and en passent checks
 pub struct Attacks {
     /// The key contains the squares that white attacks and the value contains
@@ -196,9 +196,8 @@ impl Attacks {
         }
     }
 }
-
 /// The board representation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     /// the position of the black king
     pub black_pos: Square,
@@ -314,11 +313,39 @@ impl Board {
                     Player::Black => 7,
                 };
                 if king_side {
+                    match self.turn {
+                        Player::Black => {
+                            self.black_pos = Square {
+                                rank: rank as u8,
+                                file: 6,
+                            }
+                        }
+                        Player::White => {
+                            self.white_pos = Square {
+                                rank: rank as u8,
+                                file: 6,
+                            }
+                        }
+                    };
                     self.positions[rank * 8 + 6] = self.positions[rank * 8 + 4];
                     self.positions[rank * 8 + 4] = None;
                     self.positions[rank * 8 + 5] = self.positions[rank * 8 + 7];
                     self.positions[rank * 8 + 7] = None;
                 } else {
+                    match self.turn {
+                        Player::Black => {
+                            self.black_pos = Square {
+                                rank: rank as u8,
+                                file: 2,
+                            }
+                        }
+                        Player::White => {
+                            self.white_pos = Square {
+                                rank: rank as u8,
+                                file: 2,
+                            }
+                        }
+                    };
                     self.positions[rank * 8 + 2] = self.positions[rank * 8 + 4];
                     self.positions[rank * 8 + 4] = None;
                     self.positions[rank * 8 + 3] = self.positions[rank * 8];
@@ -598,7 +625,6 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(-x, 0))),
             self.to_attack((1..8).map(|x| square.translate(0, -x))),
         ];
-        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -648,12 +674,13 @@ impl Board {
         &self,
         rng: impl Iterator<Item = Square>,
         kinds: &[PieceKind],
+        color: Player,
     ) -> Option<(Square, Square)> {
         let mut pinner = None;
         let mut pinned = None;
         for i in rng {
             if let Some(piece) = self.get_piece(i) {
-                if piece.owner == self.turn {
+                if piece.owner == color {
                     if pinned.is_some() {
                         break;
                     }
@@ -671,26 +698,59 @@ impl Board {
     }
     fn on_king_update_pins(&mut self, sq: Square) {
         use PieceKind::{Bishop, Queen, Rook};
+        let color = self.get_piece(sq).unwrap().owner;
         let mut ret: Vec<(Square, Square)> = [
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, 0)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, x)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, 0)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, -x)), &[Rook, Queen]),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, 0)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(0, x)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, 0)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(0, -x)),
+                &[Rook, Queen],
+                color,
+            ),
         ]
         .iter()
         .filter_map(|&x| x)
         .collect();
         let mut bishop: Vec<(Square, Square)> = [
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, -x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, -x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, x)), &[Bishop, Queen]),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, -x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, -x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, x)),
+                &[Bishop, Queen],
+                color,
+            ),
         ]
         .iter()
         .filter_map(|&x| x)
         .collect();
         ret.append(&mut bishop);
-        let pins = match self.turn {
+        let pins = match self.get_piece(sq).unwrap().owner {
             Player::White => &mut self.attacks.black_pins,
             Player::Black => &mut self.attacks.white_pins,
         };
@@ -703,6 +763,7 @@ impl Board {
         match m {
             moves::Move::Move(_, dst, src) => {
                 self.attacks.clear_attacks_by(src, self.turn);
+                self.attacks.clear_pins_by(self.turn, src);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
                 diff.push((self.get_piece(dst).unwrap(), dst));
@@ -711,6 +772,7 @@ impl Board {
                 }
                 for (piece, sq) in diff {
                     self.attacks.clear_attacks_by(sq, piece.owner);
+                    self.attacks.clear_pins_by(piece.owner, sq);
                     self.calculate_piece_attack(sq, piece);
                 }
             }
@@ -718,15 +780,15 @@ impl Board {
                 let king_src = Square::new(4, self.turn.king_rank()).unwrap();
                 let (rook_src, rook_dst, king_dst) = if king_side {
                     (
-                        Square::new(0, self.turn.king_rank()).unwrap(),
-                        Square::new(3, self.turn.king_rank()).unwrap(),
-                        Square::new(2, self.turn.king_rank()).unwrap(),
-                    )
-                } else {
-                    (
                         Square::new(7, self.turn.king_rank()).unwrap(),
                         Square::new(5, self.turn.king_rank()).unwrap(),
                         Square::new(6, self.turn.king_rank()).unwrap(),
+                    )
+                } else {
+                    (
+                        Square::new(0, self.turn.king_rank()).unwrap(),
+                        Square::new(3, self.turn.king_rank()).unwrap(),
+                        Square::new(2, self.turn.king_rank()).unwrap(),
                     )
                 };
                 self.update_attacks(moves::Move::Move(false, king_dst, king_src), None);
@@ -741,10 +803,9 @@ impl Board {
     }
 }
 
-impl Default for Board {
-    fn default() -> Self {
-        let mut ret =
-            fen::parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+impl Board {
+    pub fn new(fen: &str) -> Self {
+        let mut ret = fen::parse_fen(fen).unwrap();
         for i in 0..64 {
             let sq = Square::from_idx(i).unwrap();
             if let Some(p) = ret.get_piece(sq) {
@@ -752,5 +813,11 @@ impl Default for Board {
             }
         }
         ret
+    }
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Board::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     }
 }
