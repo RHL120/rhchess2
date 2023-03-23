@@ -441,17 +441,40 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             }
         } else {
             let moves = legal_moves(board, src)?;
+            let &attacker = king_attacks.iter().next().unwrap();
+            let attack_piece = board.get_piece(attacker).unwrap();
+            use board::PieceKind::*;
             //The king can move
             if src == king_pos {
+                //If the attacker is a sliding piece, the king can't stay
+                //on the line attacked by the piece
+                log::info!("The src is king");
+                if [Rook, Queen, Bishop].contains(&attack_piece.kind) {
+                    log::info!("The attacker is line");
+                    let rank_diff = (king_pos.rank as i32 - attacker.rank as i32).signum();
+                    let file_diff = (king_pos.file as i32 - attacker.file as i32).signum();
+                    let moves = moves
+                        .iter()
+                        .filter(|mv| {
+                            let dst = match mv {
+                                Move::Move(_, dst, _) => dst,
+                                _ => unreachable!(),
+                            };
+                            !(1..8)
+                                .filter_map(|x| attacker.translate(file_diff * x, rank_diff * x))
+                                .any(|x| x == *dst)
+                        })
+                        .copied()
+                        .collect();
+                    return Some(moves);
+                }
                 return Some(moves);
             }
             //A piece can capture
-            let &attacker = king_attacks.iter().next().unwrap();
             let moves = moves.iter().filter_map(|&mv| match mv {
                 Move::Move(_, dst, _) => {
                     let apk = board.get_piece(attacker).unwrap().kind;
                     //The attacker can be captured
-                    use board::PieceKind::Knight;
                     if dst == attacker || (apk != Knight && blocks(dst, attacker, king_pos)) {
                         Some(mv)
                     } else {
