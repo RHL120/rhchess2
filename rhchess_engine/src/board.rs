@@ -62,6 +62,15 @@ impl Square {
             None
         }
     }
+    pub fn new_unsafe(file: u8, rank: u8) -> Square {
+        Square { file, rank }
+    }
+    pub fn from_idx_unsafe(idx: u8) -> Square {
+        Square {
+            rank: idx / 8,
+            file: idx % 8,
+        }
+    }
     pub fn from_idx(idx: u8) -> Option<Square> {
         if idx < 64 {
             Some(Square {
@@ -255,10 +264,10 @@ impl Board {
                     Player::Black => 0,
                     Player::White => 7,
                 };
-                if dst == Square::new(7, opposite_rank).unwrap() {
+                if dst == Square::new_unsafe(7, opposite_rank) {
                     self.castling_rights
                         .set(None, Some(false), self.turn.opposite());
-                } else if dst == Square::new(0, opposite_rank).unwrap() {
+                } else if dst == Square::new_unsafe(0, opposite_rank) {
                     self.castling_rights
                         .set(Some(false), None, self.turn.opposite());
                 }
@@ -777,18 +786,18 @@ impl Board {
                 }
             }
             moves::Move::Castle(king_side) => {
-                let king_src = Square::new(4, self.turn.king_rank()).unwrap();
+                let king_src = Square::new_unsafe(4, self.turn.king_rank());
                 let (rook_src, rook_dst, king_dst) = if king_side {
                     (
-                        Square::new(7, self.turn.king_rank()).unwrap(),
-                        Square::new(5, self.turn.king_rank()).unwrap(),
-                        Square::new(6, self.turn.king_rank()).unwrap(),
+                        Square::new_unsafe(7, self.turn.king_rank()),
+                        Square::new_unsafe(5, self.turn.king_rank()),
+                        Square::new_unsafe(6, self.turn.king_rank()),
                     )
                 } else {
                     (
-                        Square::new(0, self.turn.king_rank()).unwrap(),
-                        Square::new(3, self.turn.king_rank()).unwrap(),
-                        Square::new(2, self.turn.king_rank()).unwrap(),
+                        Square::new_unsafe(0, self.turn.king_rank()),
+                        Square::new_unsafe(3, self.turn.king_rank()),
+                        Square::new_unsafe(2, self.turn.king_rank()),
                     )
                 };
                 self.update_attacks(moves::Move::Move(false, king_dst, king_src), None);
@@ -807,7 +816,7 @@ impl Board {
     pub fn new(fen: &str) -> Self {
         let mut ret = fen::parse_fen(fen).unwrap();
         for i in 0..64 {
-            let sq = Square::from_idx(i).unwrap();
+            let sq = Square::from_idx_unsafe(i);
             if let Some(p) = ret.get_piece(sq) {
                 ret.calculate_piece_attack(sq, p);
             }

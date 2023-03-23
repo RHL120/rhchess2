@@ -503,7 +503,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
 pub fn get_all_legal_moves(board: &Board) -> Vec<Move> {
     let mut ret = Vec::new();
     for i in 0..64 {
-        let sq = Square::from_idx(i).unwrap();
+        let sq = Square::from_idx_unsafe(i);
         if let Some(p) = board.get_piece(sq) {
             if p.owner == board.turn {
                 ret.append(&mut get_legal_moves(board, sq).unwrap());
