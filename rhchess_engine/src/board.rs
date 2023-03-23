@@ -93,6 +93,12 @@ impl Square {
             None
         }
     }
+    pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<impl Iterator<Item = Square>> {
+        diffs
+            .iter()
+            .map(|&(df, dr)| (1..8).map_while(move |x| self.translate(df * x, dr * x)))
+            .collect()
+    }
 }
 
 impl std::fmt::Display for Square {
@@ -253,17 +259,14 @@ impl Board {
                     PieceKind::King => {
                         self.castling_rights
                             .set(Some(false), Some(false), self.turn);
-                        //If the king is close to atcking an enemy rook
+                        //If the king is close to attacking an enemy rook
                         //it has already lost it's castling rights so no need
                         //to check for that.
                         return;
                     }
                     _ => (),
                 }
-                let opposite_rank = match self.turn {
-                    Player::Black => 0,
-                    Player::White => 7,
-                };
+                let opposite_rank = self.turn.opposite().king_rank();
                 if dst == Square::new_unsafe(7, opposite_rank) {
                     self.castling_rights
                         .set(None, Some(false), self.turn.opposite());

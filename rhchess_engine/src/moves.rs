@@ -13,30 +13,18 @@ pub enum Move {
 
 fn knight(board: &Board, src: Square) -> Vec<Move> {
     [
-        src.rank
-            .checked_sub(2)
-            .and_then(|x| Square::new(src.file + 1, x)),
-        src.rank
-            .checked_sub(1)
-            .and_then(|x| Square::new(src.file + 2, x)),
-        Square::new(src.file + 2, src.rank + 1),
-        Square::new(src.file + 1, src.rank + 2),
-        src.file
-            .checked_sub(1)
-            .and_then(|x| Square::new(x, src.rank + 2)),
-        src.file
-            .checked_sub(2)
-            .and_then(|x| Square::new(x, src.rank + 1)),
-        src.file
-            .checked_sub(2)
-            .and_then(|f| src.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
-        src.file
-            .checked_sub(1)
-            .and_then(|f| src.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
+        (1, 2),
+        (-1, 2),
+        (-2, 1),
+        (-2, -1),
+        (-1, -2),
+        (1, -2),
+        (2, -1),
+        (2, 1),
     ]
     .iter()
-    .filter_map(|&x| {
-        let x = x?;
+    .filter_map(|&(fd, rd)| {
+        let x = src.translate(fd, rd)?;
         match board.get_piece(x) {
             Some(piece) => {
                 if piece.owner != board.turn {
@@ -51,49 +39,22 @@ fn knight(board: &Board, src: Square) -> Vec<Move> {
     .collect()
 }
 
-fn to_moves(board: &Board, src: Square, line: impl Iterator<Item = Option<Square>>) -> Vec<Move> {
+fn sliders(board: &Board, src: Square, diffs: &[(i32, i32)]) -> Vec<Move> {
     let mut ret = Vec::new();
-    for i in line {
-        match i {
-            None => break,
-            Some(s) => match board.get_piece(s) {
-                None => ret.push(Move::Move(true, s, src)),
+    for line in src.generate_lines(diffs) {
+        for square in line {
+            match board.get_piece(square) {
+                None => ret.push(Move::Move(true, square, src)),
                 Some(piece) => {
                     if board.turn != piece.owner {
-                        ret.push(Move::Move(false, s, src));
+                        ret.push(Move::Move(false, square, src));
                     }
                     break;
                 }
-            },
+            }
         }
     }
     ret
-}
-
-fn bishop(board: &Board, src: Square) -> Vec<Move> {
-    [
-        to_moves(board, src, (1..8).map(|x| src.translate(-x, -x))),
-        to_moves(board, src, (1..8).map(|x| src.translate(-x, x))),
-        to_moves(board, src, (1..8).map(|x| src.translate(x, -x))),
-        to_moves(board, src, (1..8).map(|x| src.translate(x, x))),
-    ]
-    .concat()
-}
-
-fn rook(board: &Board, src: Square) -> Vec<Move> {
-    [
-        to_moves(board, src, (1..8).map(|x| src.translate(x, 0))),
-        to_moves(board, src, (1..8).map(|x| src.translate(0, x))),
-        to_moves(board, src, (1..8).map(|x| src.translate(-x, 0))),
-        to_moves(board, src, (1..8).map(|x| src.translate(0, -x))),
-    ]
-    .concat()
-}
-
-fn queen(board: &Board, src: Square) -> Vec<Move> {
-    let mut b = bishop(board, src);
-    b.append(&mut rook(board, src));
-    b
 }
 
 fn pawn(board: &Board, src: Square) -> Vec<Move> {
@@ -201,17 +162,6 @@ fn king(board: &Board, src: Square) -> Vec<Move> {
     moves
 }
 
-pub fn get_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
-    match board.get_piece(src).as_ref()?.kind {
-        board::PieceKind::Knight => Some(knight(board, src)),
-        board::PieceKind::Bishop => Some(bishop(board, src)),
-        board::PieceKind::Rook => Some(rook(board, src)),
-        board::PieceKind::Queen => Some(queen(board, src)),
-        board::PieceKind::Pawn => Some(pawn(board, src)),
-        board::PieceKind::King => Some(king(board, src)),
-    }
-}
-
 pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
     king(board, src)
         .iter()
@@ -286,26 +236,14 @@ fn legal_bishop(board: &Board, src: Square) -> Vec<Move> {
         let file_diff = pinner.file as i32 - src.file as i32;
         //The pinner is on a diagonal
         if rank_diff.abs() == file_diff.abs() {
-            let rank_diff = rank_diff.signum();
-            let file_diff = file_diff.signum();
-            [
-                to_moves(
-                    board,
-                    src,
-                    (1..8).map(|x| src.translate(file_diff * x, rank_diff * x)),
-                ),
-                to_moves(
-                    board,
-                    src,
-                    (1..8).map(|x| src.translate(-file_diff * x, -rank_diff * x)),
-                ),
-            ]
-            .concat()
+            let rd = rank_diff.signum();
+            let fd = file_diff.signum();
+            sliders(board, src, &[(rd, fd), (-rd, -fd)])
         } else {
             Vec::new()
         }
     } else {
-        bishop(board, src)
+        sliders(board, src, &[(-1, 1), (1, -1), (-1, -1), (1, 1)])
     }
 }
 
@@ -316,30 +254,35 @@ fn legal_rook(board: &Board, src: Square) -> Vec<Move> {
         //The pinner is vertical
         if rank_diff == 0 {
             let file_diff = file_diff.signum();
-            [
-                to_moves(board, src, (1..8).map(|x| src.translate(file_diff * x, 0))),
-                to_moves(board, src, (1..8).map(|x| src.translate(-file_diff * x, 0))),
-            ]
-            .concat()
+            sliders(board, src, &[(file_diff, 0), (-file_diff, 0)])
         } else if file_diff == 0 {
             //The pinner is horizontal
             let rank_diff = rank_diff.signum();
-            [
-                to_moves(board, src, (1..8).map(|x| src.translate(0, rank_diff * x))),
-                to_moves(board, src, (1..8).map(|x| src.translate(0, -rank_diff * x))),
-            ]
-            .concat()
+            sliders(board, src, &[(0, rank_diff), (0, -rank_diff)])
         } else {
             Vec::new()
         }
     } else {
-        rook(board, src)
+        sliders(board, src, &[(1, 0), (0, 1), (-1, 0), (0, -1)])
     }
 }
 
 fn legal_queen(board: &Board, src: Square) -> Vec<Move> {
     if board.attacks.get_pinner(board.turn, src).is_none() {
-        queen(board, src)
+        sliders(
+            board,
+            src,
+            &[
+                (1, 0),
+                (0, 1),
+                (-1, 0),
+                (0, -1),
+                (-1, 1),
+                (1, -1),
+                (-1, -1),
+                (1, 1),
+            ],
+        )
     } else {
         let rook = legal_rook(board, src);
         if rook.is_empty() {
@@ -517,7 +460,12 @@ pub fn get_all_legal_moves(board: &Board) -> Vec<Move> {
 mod tests {
     use crate::board::PieceKind;
 
-    fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) -> String {
+    fn display_move(
+        b: &board::Board,
+        m: Move,
+        promote: Option<board::PieceKind>,
+        t: board::Player,
+    ) -> String {
         match m {
             Move::Move(_, dst, src) => {
                 let r = format!("{}{}", src, dst);
@@ -535,19 +483,13 @@ mod tests {
                     r
                 }
             }
-            Move::Castle(king) => {
-                if king {
-                    let king = b.current_king();
-                    format!(
-                        "{}{}",
-                        king,
-                        board::Square {
-                            rank: king.rank,
-                            file: 6,
-                        },
-                    )
+            Move::Castle(king_side) => {
+                let rank = t.king_rank();
+                let king = Square { rank, file: 4 };
+                if king_side {
+                    format!("{}{}", king, board::Square { rank, file: 6 },)
                 } else {
-                    let rank = b.turn.opposite().king_rank();
+                    let rank = t.king_rank();
                     let king = Square { rank, file: 4 };
                     format!("{}{}", king, board::Square { rank, file: 2 })
                 }
@@ -576,20 +518,22 @@ mod tests {
                     let mut board = board.clone();
                     board.make_move(mv);
                     board.make_promotion(mv, i);
+                    let p = board.turn;
                     board.switch_player();
                     let count = perft(&board, depth - 1, og_d);
                     if depth == og_d {
-                        println!("{}: {}", display_move(&board, mv, Some(i)), count);
+                        println!("{}: {}", display_move(&board, mv, Some(i), p), count);
                     }
                     ret += count
                 }
             } else {
                 let mut board = board.clone();
                 board.make_move(mv);
+                let player = board.turn;
                 board.switch_player();
                 let count = perft(&board, depth - 1, og_d);
                 if depth == og_d {
-                    println!("{}: {}", display_move(&board, mv, None), count);
+                    println!("{}: {}", display_move(&board, mv, None, player), count);
                 }
                 ret += count;
             }
@@ -624,7 +568,7 @@ mod tests {
     #[test]
     fn position5() {
         let ret = perft(
-            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "),
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"),
             3,
             3,
         );
