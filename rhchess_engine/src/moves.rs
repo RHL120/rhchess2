@@ -240,7 +240,7 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
                     };
                     let second = Square {
                         rank: king_rank,
-                        file: 7,
+                        file: 6,
                     };
                     let opp = board.turn.opposite();
                     if board.attacks.does_attack(opp, first)
@@ -449,8 +449,10 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             let &attacker = king_attacks.iter().next().unwrap();
             let moves = moves.iter().filter_map(|&mv| match mv {
                 Move::Move(_, dst, _) => {
+                    let apk = board.get_piece(attacker).unwrap().kind;
                     //The attacker can be captured
-                    if dst == attacker || blocks(dst, attacker, king_pos) {
+                    use board::PieceKind::Knight;
+                    if dst == attacker || (apk != Knight && blocks(dst, attacker, king_pos)) {
                         Some(mv)
                     } else {
                         None
@@ -554,7 +556,7 @@ mod tests {
             ret
         }
         let ret = test(
-            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPPNNnPP/R1BQK2R b KQ - 2 8"),
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 "),
             2,
             2,
         );
