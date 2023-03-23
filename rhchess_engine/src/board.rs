@@ -184,6 +184,7 @@ impl Attacks {
         }
     }
     fn clear_pins_by(&mut self, p: Player, s: Square) {
+        log::info!("Clearing pins by p: {:#?} on square: {}", p, s);
         let pins = match p {
             Player::White => &mut self.white_pins,
             Player::Black => &mut self.black_pins,
@@ -450,6 +451,7 @@ impl Board {
         ret
     }
     fn update_knight_attacks(&mut self, square: Square, p: Player) {
+        log::info!("Updating kinght attacks");
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
@@ -477,10 +479,13 @@ impl Board {
                 .file
                 .checked_sub(2)
                 .and_then(|f| square.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
-            square
-                .file
-                .checked_sub(1)
-                .and_then(|f| square.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
+            square.file.checked_sub(1).and_then(|f| {
+                square.rank.checked_sub(2).and_then(|r| {
+                    let sq = Square::new(f, r);
+                    log::info!("can attack: {:#?}", sq);
+                    sq
+                })
+            }),
         ]
         .iter()
         .filter_map(|&x| x)
@@ -573,6 +578,8 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(x, -x))),
             self.to_attack((1..8).map(|x| square.translate(x, x))),
         ];
+        log::info!("updateing {:#?} {}", p, square);
+        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -702,6 +709,7 @@ impl Board {
         match m {
             moves::Move::Move(_, dst, src) => {
                 self.attacks.clear_attacks_by(src, self.turn);
+                self.attacks.clear_pins_by(self.turn, src);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
                 diff.push((self.get_piece(dst).unwrap(), dst));
@@ -717,15 +725,15 @@ impl Board {
                 let king_src = Square::new(4, self.turn.king_rank()).unwrap();
                 let (rook_src, rook_dst, king_dst) = if king_side {
                     (
-                        Square::new(0, self.turn.king_rank()).unwrap(),
-                        Square::new(3, self.turn.king_rank()).unwrap(),
-                        Square::new(2, self.turn.king_rank()).unwrap(),
-                    )
-                } else {
-                    (
                         Square::new(7, self.turn.king_rank()).unwrap(),
                         Square::new(5, self.turn.king_rank()).unwrap(),
                         Square::new(6, self.turn.king_rank()).unwrap(),
+                    )
+                } else {
+                    (
+                        Square::new(0, self.turn.king_rank()).unwrap(),
+                        Square::new(3, self.turn.king_rank()).unwrap(),
+                        Square::new(2, self.turn.king_rank()).unwrap(),
                     )
                 };
                 self.update_attacks(moves::Move::Move(false, king_dst, king_src), None);
@@ -737,13 +745,13 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
+        log::info!("{:#?}", self.attacks);
     }
 }
 
-impl Default for Board {
-    fn default() -> Self {
-        let mut ret =
-            fen::parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+impl Board {
+    pub fn new(fen: &str) -> Self {
+        let mut ret = fen::parse_fen(fen).unwrap();
         for i in 0..64 {
             let sq = Square::from_idx(i).unwrap();
             if let Some(p) = ret.get_piece(sq) {
@@ -751,5 +759,11 @@ impl Default for Board {
             }
         }
         ret
+    }
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPPNNnPP/R1BQK2R b KQ - 2 8")
     }
 }

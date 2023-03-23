@@ -1,9 +1,8 @@
+use std::fmt::format;
+
 use crate::board;
 use crate::board::Board;
 use crate::board::Square;
-use std::collections::HashMap;
-use std::collections::HashSet;
-
 #[derive(Clone, Copy, Debug)]
 pub enum Move {
     /// Castle(king_side)
@@ -241,7 +240,7 @@ pub fn legal_king(board: &Board, src: Square) -> Vec<Move> {
                     };
                     let second = Square {
                         rank: king_rank,
-                        file: 5,
+                        file: 7,
                     };
                     let opp = board.turn.opposite();
                     if board.attacks.does_attack(opp, first)
@@ -472,13 +471,93 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
     }
     legal_moves(board, src)
 }
-pub fn get_all_legal_moves(board: &Board, src: Square) -> HashMap<Square, Vec<Move>> {
-    let mut ret = HashMap::new();
+pub fn get_all_legal_moves(board: &Board) -> Vec<Move> {
+    let mut ret = Vec::new();
     for i in 0..64 {
         let sq = Square::from_idx(i).unwrap();
-        if let Some(moves) = get_legal_moves(board, sq) {
-            ret.insert(sq, moves);
+        if let Some(p) = board.get_piece(sq) {
+            if p.owner == board.turn {
+                ret.append(&mut get_legal_moves(board, sq).unwrap());
+            }
         }
     }
     ret
+}
+
+fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) -> String {
+    match m {
+        Move::Move(_, dst, src) => {
+            let r = format!("{}{}", src, dst);
+            if let Some(promote) = promote {
+                let piece = match promote {
+                    board::PieceKind::Pawn => 'p',
+                    board::PieceKind::Rook => 'r',
+                    board::PieceKind::Queen => 'q',
+                    board::PieceKind::Knight => 'n',
+                    board::PieceKind::King => 'n',
+                    board::PieceKind::Bishop => 'b',
+                };
+                format!("{}{}", r, piece)
+            } else {
+                r
+            }
+        }
+        Move::Castle(_) => "castle".to_owned(),
+        Move::EnPassent(src) => {
+            let dst = b.en_passant.unwrap();
+            format!("{}{}", src, dst)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::board::PieceKind;
+
+    use super::*;
+    #[test]
+    fn move_test() {
+        fn test(board: &Board, depth: u32, og_d: u32) -> usize {
+            if depth == 0 {
+                return 1;
+            }
+            let mut ret = 0;
+            for mv in get_all_legal_moves(board) {
+                if board.is_promotion(mv) {
+                    for i in [
+                        PieceKind::Queen,
+                        PieceKind::Rook,
+                        PieceKind::Bishop,
+                        PieceKind::Knight,
+                    ] {
+                        let mut board = board.clone();
+                        board.make_move(mv);
+                        board.make_promotion(mv, i);
+                        board.switch_player();
+                        let count = test(&board, depth - 1, og_d);
+                        if depth == og_d {
+                            println!("{}: {}", display_move(&board, mv, Some(i)), count);
+                        }
+                        ret += count
+                    }
+                } else {
+                    let mut board = board.clone();
+                    board.make_move(mv);
+                    board.switch_player();
+                    let count = test(&board, depth - 1, og_d);
+                    if depth == og_d {
+                        println!("{}: {}", display_move(&board, mv, None), count);
+                    }
+                    ret += count;
+                }
+            }
+            ret
+        }
+        let ret = test(
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPPNNnPP/R1BQK2R b KQ - 2 8"),
+            2,
+            2,
+        );
+        println!("{}", ret);
+    }
 }
