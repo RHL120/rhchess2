@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::fmt::format;
 
 use crate::board;
@@ -375,17 +376,26 @@ fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
                             Some((sq, board.get_piece(sq)?))
                         })
                         .collect::<Vec<(board::Square, board::Piece)>>();
-                    let pinned = x.chunks(4).any(|chunk| {
-                        use board::PieceKind::*;
-                        chunk.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
-                            && chunk
+                    use board::PieceKind::*;
+                    let mut pinned = false;
+                    for i in 0..x.len() {
+                        let sub = match x.get(i..i + 4) {
+                            Some(x) => x,
+                            None => break,
+                        };
+                        log::info!("{:#?}", sub);
+                        pinned = sub.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
+                            && sub.iter().any(|&(sq, _)| sq == src)
+                            && sub
                                 .iter()
-                                .any(|(_, p)| p.kind == King && p.owner == board.turn)
-                            && chunk.iter().any(|(_, p)| {
-                                (p.kind == Queen || p.kind == Rook)
-                                    && p.owner == board.turn.opposite()
-                            })
-                    });
+                                .any(|&(_, p)| p.kind == King && p.owner == board.turn)
+                            && sub.iter().any(|&(_, p)| {
+                                p.owner != board.turn && (p.kind == Rook || p.kind == Queen)
+                            });
+                        if pinned {
+                            break;
+                        }
+                    }
                     if !pinned {
                         Some(r)
                     } else {
@@ -527,7 +537,23 @@ fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) ->
                 r
             }
         }
-        Move::Castle(_) => "castle".to_owned(),
+        Move::Castle(king) => {
+            if king {
+                let king = b.current_king();
+                format!(
+                    "{}{}",
+                    king,
+                    board::Square {
+                        rank: king.rank,
+                        file: 6,
+                    },
+                )
+            } else {
+                let rank = b.turn.opposite().king_rank();
+                let king = Square { rank, file: 4 };
+                format!("{}{}", king, board::Square { rank, file: 2 })
+            }
+        }
         Move::EnPassent(src) => {
             let dst = b.en_passant.unwrap();
             format!("{}{}", src, dst)
@@ -540,49 +566,85 @@ mod tests {
     use crate::board::PieceKind;
 
     use super::*;
-    #[test]
-    fn move_test() {
-        fn test(board: &Board, depth: u32, og_d: u32) -> usize {
-            if depth == 0 {
-                return 1;
-            }
-            let mut ret = 0;
-            for mv in get_all_legal_moves(board) {
-                if board.is_promotion(mv) {
-                    for i in [
-                        PieceKind::Queen,
-                        PieceKind::Rook,
-                        PieceKind::Bishop,
-                        PieceKind::Knight,
-                    ] {
-                        let mut board = board.clone();
-                        board.make_move(mv);
-                        board.make_promotion(mv, i);
-                        board.switch_player();
-                        let count = test(&board, depth - 1, og_d);
-                        if depth == og_d {
-                            println!("{}: {}", display_move(&board, mv, Some(i)), count);
-                        }
-                        ret += count
-                    }
-                } else {
+    fn perft(board: &Board, depth: u32, og_d: u32) -> usize {
+        if depth == 0 {
+            return 1;
+        }
+        let mut ret = 0;
+        for mv in get_all_legal_moves(board) {
+            if board.is_promotion(mv) {
+                for i in [
+                    PieceKind::Queen,
+                    PieceKind::Rook,
+                    PieceKind::Bishop,
+                    PieceKind::Knight,
+                ] {
                     let mut board = board.clone();
                     board.make_move(mv);
+                    board.make_promotion(mv, i);
                     board.switch_player();
-                    let count = test(&board, depth - 1, og_d);
+                    let count = perft(&board, depth - 1, og_d);
                     if depth == og_d {
-                        println!("{}: {}", display_move(&board, mv, None), count);
+                        println!("{}: {}", display_move(&board, mv, Some(i)), count);
                     }
-                    ret += count;
+                    ret += count
                 }
+            } else {
+                let mut board = board.clone();
+                board.make_move(mv);
+                board.switch_player();
+                let count = perft(&board, depth - 1, og_d);
+                if depth == og_d {
+                    println!("{}: {}", display_move(&board, mv, None), count);
+                }
+                ret += count;
             }
-            ret
         }
-        let ret = test(
-            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"),
-            2,
-            2,
+        ret
+    }
+    #[test]
+    fn initial_postion() {
+        let ret = perft(&board::Board::default(), 3, 3);
+        assert_eq!(ret, 8902);
+    }
+    #[test]
+    fn position2() {
+        let ret = perft(
+            &board::Board::new(
+                "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            ),
+            3,
+            3,
         );
-        println!("{}", ret);
+        assert_eq!(ret, 97862);
+    }
+    #[test]
+    fn position3() {
+        let ret = perft(
+            &board::Board::new("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"),
+            4,
+            4,
+        );
+        assert_eq!(ret, 43238);
+    }
+    #[test]
+    fn position5() {
+        let ret = perft(
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "),
+            3,
+            3,
+        );
+        assert_eq!(ret, 62379);
+    }
+    #[test]
+    fn position6() {
+        let ret = perft(
+            &board::Board::new(
+                "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+            ),
+            3,
+            3,
+        );
+        assert_eq!(ret, 89890);
     }
 }

@@ -314,11 +314,39 @@ impl Board {
                     Player::Black => 7,
                 };
                 if king_side {
+                    match self.turn {
+                        Player::Black => {
+                            self.black_pos = Square {
+                                rank: rank as u8,
+                                file: 6,
+                            }
+                        }
+                        Player::White => {
+                            self.white_pos = Square {
+                                rank: rank as u8,
+                                file: 6,
+                            }
+                        }
+                    };
                     self.positions[rank * 8 + 6] = self.positions[rank * 8 + 4];
                     self.positions[rank * 8 + 4] = None;
                     self.positions[rank * 8 + 5] = self.positions[rank * 8 + 7];
                     self.positions[rank * 8 + 7] = None;
                 } else {
+                    match self.turn {
+                        Player::Black => {
+                            self.black_pos = Square {
+                                rank: rank as u8,
+                                file: 2,
+                            }
+                        }
+                        Player::White => {
+                            self.white_pos = Square {
+                                rank: rank as u8,
+                                file: 2,
+                            }
+                        }
+                    };
                     self.positions[rank * 8 + 2] = self.positions[rank * 8 + 4];
                     self.positions[rank * 8 + 4] = None;
                     self.positions[rank * 8 + 3] = self.positions[rank * 8];
@@ -545,6 +573,7 @@ impl Board {
         let rank_diff = opp_king_pos.rank as i32 - sq.rank as i32;
         let file_diff = opp_king_pos.file as i32 - sq.file as i32;
         if diff_check(rank_diff, file_diff) {
+            log::info!("Found diff check {}, {:#?}", sq, c);
             let rank_diff = rank_diff.signum();
             let file_diff = file_diff.signum();
             let seps: Vec<(Square, Piece)> = (1..8)
@@ -565,6 +594,7 @@ impl Board {
                 _ => None,
             }
         } else {
+            log::info!("No diff check {}, {:#?}", sq, c);
             None
         }
     }
@@ -649,12 +679,13 @@ impl Board {
         &self,
         rng: impl Iterator<Item = Square>,
         kinds: &[PieceKind],
+        color: Player,
     ) -> Option<(Square, Square)> {
         let mut pinner = None;
         let mut pinned = None;
         for i in rng {
             if let Some(piece) = self.get_piece(i) {
-                if piece.owner == self.turn {
+                if piece.owner == color {
                     if pinned.is_some() {
                         break;
                     }
@@ -672,20 +703,53 @@ impl Board {
     }
     fn on_king_update_pins(&mut self, sq: Square) {
         use PieceKind::{Bishop, Queen, Rook};
+        let color = self.get_piece(sq).unwrap().owner;
         let mut ret: Vec<(Square, Square)> = [
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, 0)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, x)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, 0)), &[Rook, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(0, -x)), &[Rook, Queen]),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, 0)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(0, x)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, 0)),
+                &[Rook, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(0, -x)),
+                &[Rook, Queen],
+                color,
+            ),
         ]
         .iter()
         .filter_map(|&x| x)
         .collect();
         let mut bishop: Vec<(Square, Square)> = [
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, -x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(-x, x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, -x)), &[Bishop, Queen]),
-            self.pinner_pinned((1..8).map_while(|x| sq.translate(x, x)), &[Bishop, Queen]),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, -x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(-x, x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, -x)),
+                &[Bishop, Queen],
+                color,
+            ),
+            self.pinner_pinned(
+                (1..8).map_while(|x| sq.translate(x, x)),
+                &[Bishop, Queen],
+                color,
+            ),
         ]
         .iter()
         .filter_map(|&x| x)
@@ -695,9 +759,10 @@ impl Board {
             Player::White => &mut self.attacks.black_pins,
             Player::Black => &mut self.attacks.white_pins,
         };
-        log::info!("Clearing all pins");
+        log::info!("Clearing all pins, by {}", sq);
         pins.clear();
         for (pinner, pinned) in ret {
+            log::info!("The king found a pin {}, {}", pinner, pinned);
             pins.insert(pinned, pinner);
         }
     }
@@ -705,6 +770,7 @@ impl Board {
         match m {
             moves::Move::Move(_, dst, src) => {
                 self.attacks.clear_attacks_by(src, self.turn);
+                log::info!("Clearing pins by src: {:#?} {}", self.turn, src);
                 self.attacks.clear_pins_by(self.turn, src);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
@@ -714,6 +780,8 @@ impl Board {
                 }
                 for (piece, sq) in diff {
                     self.attacks.clear_attacks_by(sq, piece.owner);
+                    log::info!("Clearing pins by sq: {:#?} {}", piece.owner, src);
+                    self.attacks.clear_pins_by(piece.owner, sq);
                     self.calculate_piece_attack(sq, piece);
                 }
             }
@@ -754,12 +822,13 @@ impl Board {
                 ret.calculate_piece_attack(sq, p);
             }
         }
+        log::info!("{:#?}", ret.attacks);
         ret
     }
 }
 
 impl Default for Board {
     fn default() -> Self {
-        Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+        Board::new("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
     }
 }
