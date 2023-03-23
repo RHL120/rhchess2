@@ -1,6 +1,3 @@
-use std::cmp::min;
-use std::fmt::format;
-
 use crate::board;
 use crate::board::Board;
 use crate::board::Square;
@@ -383,7 +380,6 @@ fn legal_pawn(board: &Board, src: Square) -> Vec<Move> {
                             Some(x) => x,
                             None => break,
                         };
-                        log::info!("{:#?}", sub);
                         pinned = sub.iter().any(|&(sq, _)| sq == board.en_passant.unwrap())
                             && sub.iter().any(|&(sq, _)| sq == src)
                             && sub
@@ -458,9 +454,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
             if src == king_pos {
                 //If the attacker is a sliding piece, the king can't stay
                 //on the line attacked by the piece
-                log::info!("The src is king");
                 if [Rook, Queen, Bishop].contains(&attack_piece.kind) {
-                    log::info!("The attacker is line");
                     let rank_diff = (king_pos.rank as i32 - attacker.rank as i32).signum();
                     let file_diff = (king_pos.file as i32 - attacker.file as i32).signum();
                     let moves = moves
@@ -519,51 +513,51 @@ pub fn get_all_legal_moves(board: &Board) -> Vec<Move> {
     ret
 }
 
-fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) -> String {
-    match m {
-        Move::Move(_, dst, src) => {
-            let r = format!("{}{}", src, dst);
-            if let Some(promote) = promote {
-                let piece = match promote {
-                    board::PieceKind::Pawn => 'p',
-                    board::PieceKind::Rook => 'r',
-                    board::PieceKind::Queen => 'q',
-                    board::PieceKind::Knight => 'n',
-                    board::PieceKind::King => 'n',
-                    board::PieceKind::Bishop => 'b',
-                };
-                format!("{}{}", r, piece)
-            } else {
-                r
-            }
-        }
-        Move::Castle(king) => {
-            if king {
-                let king = b.current_king();
-                format!(
-                    "{}{}",
-                    king,
-                    board::Square {
-                        rank: king.rank,
-                        file: 6,
-                    },
-                )
-            } else {
-                let rank = b.turn.opposite().king_rank();
-                let king = Square { rank, file: 4 };
-                format!("{}{}", king, board::Square { rank, file: 2 })
-            }
-        }
-        Move::EnPassent(src) => {
-            let dst = b.en_passant.unwrap();
-            format!("{}{}", src, dst)
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::board::PieceKind;
+
+    fn display_move(b: &board::Board, m: Move, promote: Option<board::PieceKind>) -> String {
+        match m {
+            Move::Move(_, dst, src) => {
+                let r = format!("{}{}", src, dst);
+                if let Some(promote) = promote {
+                    let piece = match promote {
+                        board::PieceKind::Pawn => 'p',
+                        board::PieceKind::Rook => 'r',
+                        board::PieceKind::Queen => 'q',
+                        board::PieceKind::Knight => 'n',
+                        board::PieceKind::King => 'n',
+                        board::PieceKind::Bishop => 'b',
+                    };
+                    format!("{}{}", r, piece)
+                } else {
+                    r
+                }
+            }
+            Move::Castle(king) => {
+                if king {
+                    let king = b.current_king();
+                    format!(
+                        "{}{}",
+                        king,
+                        board::Square {
+                            rank: king.rank,
+                            file: 6,
+                        },
+                    )
+                } else {
+                    let rank = b.turn.opposite().king_rank();
+                    let king = Square { rank, file: 4 };
+                    format!("{}{}", king, board::Square { rank, file: 2 })
+                }
+            }
+            Move::EnPassent(src) => {
+                let dst = b.en_passant.unwrap();
+                format!("{}{}", src, dst)
+            }
+        }
+    }
 
     use super::*;
     fn perft(board: &Board, depth: u32, og_d: u32) -> usize {

@@ -192,7 +192,6 @@ impl Attacks {
             .iter()
             .find_map(|(&k, &v)| if s == v { Some(k) } else { None });
         if let Some(pos) = pos {
-            log::info!("Clearing {} {}", s, pos);
             pins.remove(&pos);
         }
     }
@@ -520,7 +519,6 @@ impl Board {
         }
     }
     fn update_king_attacks(&mut self, square: Square, p: Player) {
-        log::info!("Updating king attacks: {}", square);
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
@@ -573,7 +571,6 @@ impl Board {
         let rank_diff = opp_king_pos.rank as i32 - sq.rank as i32;
         let file_diff = opp_king_pos.file as i32 - sq.file as i32;
         if diff_check(rank_diff, file_diff) {
-            log::info!("Found diff check {}, {:#?}", sq, c);
             let rank_diff = rank_diff.signum();
             let file_diff = file_diff.signum();
             let seps: Vec<(Square, Piece)> = (1..8)
@@ -594,7 +591,6 @@ impl Board {
                 _ => None,
             }
         } else {
-            log::info!("No diff check {}, {:#?}", sq, c);
             None
         }
     }
@@ -630,7 +626,6 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(0, -x))),
         ];
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
-            log::info!("ret: {}", square);
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
                 Player::Black => self.attacks.black_pins.insert(pin, square),
@@ -759,10 +754,8 @@ impl Board {
             Player::White => &mut self.attacks.black_pins,
             Player::Black => &mut self.attacks.white_pins,
         };
-        log::info!("Clearing all pins, by {}", sq);
         pins.clear();
         for (pinner, pinned) in ret {
-            log::info!("The king found a pin {}, {}", pinner, pinned);
             pins.insert(pinned, pinner);
         }
     }
@@ -770,7 +763,6 @@ impl Board {
         match m {
             moves::Move::Move(_, dst, src) => {
                 self.attacks.clear_attacks_by(src, self.turn);
-                log::info!("Clearing pins by src: {:#?} {}", self.turn, src);
                 self.attacks.clear_pins_by(self.turn, src);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
@@ -780,7 +772,6 @@ impl Board {
                 }
                 for (piece, sq) in diff {
                     self.attacks.clear_attacks_by(sq, piece.owner);
-                    log::info!("Clearing pins by sq: {:#?} {}", piece.owner, src);
                     self.attacks.clear_pins_by(piece.owner, sq);
                     self.calculate_piece_attack(sq, piece);
                 }
@@ -809,7 +800,6 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
-        log::info!("{:#?}", self.attacks);
     }
 }
 
@@ -822,7 +812,6 @@ impl Board {
                 ret.calculate_piece_attack(sq, p);
             }
         }
-        log::info!("{:#?}", ret.attacks);
         ret
     }
 }
