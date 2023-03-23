@@ -319,8 +319,8 @@ fn legal_rook(board: &Board, src: Square) -> Vec<Move> {
         if rank_diff == 0 {
             let file_diff = file_diff.signum();
             [
-                to_moves(board, src, (1..8).map(|x| src.translate(0, file_diff * x))),
-                to_moves(board, src, (1..8).map(|x| src.translate(0, -file_diff * x))),
+                to_moves(board, src, (1..8).map(|x| src.translate(file_diff * x, 0))),
+                to_moves(board, src, (1..8).map(|x| src.translate(-file_diff * x, 0))),
             ]
             .concat()
         } else if file_diff == 0 {
@@ -556,7 +556,7 @@ mod tests {
             ret
         }
         let ret = test(
-            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 "),
+            &board::Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"),
             2,
             2,
         );

@@ -184,7 +184,6 @@ impl Attacks {
         }
     }
     fn clear_pins_by(&mut self, p: Player, s: Square) {
-        log::info!("Clearing pins by p: {:#?} on square: {}", p, s);
         let pins = match p {
             Player::White => &mut self.white_pins,
             Player::Black => &mut self.black_pins,
@@ -193,6 +192,7 @@ impl Attacks {
             .iter()
             .find_map(|(&k, &v)| if s == v { Some(k) } else { None });
         if let Some(pos) = pos {
+            log::info!("Clearing {} {}", s, pos);
             pins.remove(&pos);
         }
     }
@@ -451,7 +451,6 @@ impl Board {
         ret
     }
     fn update_knight_attacks(&mut self, square: Square, p: Player) {
-        log::info!("Updating kinght attacks");
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
@@ -479,13 +478,10 @@ impl Board {
                 .file
                 .checked_sub(2)
                 .and_then(|f| square.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
-            square.file.checked_sub(1).and_then(|f| {
-                square.rank.checked_sub(2).and_then(|r| {
-                    let sq = Square::new(f, r);
-                    log::info!("can attack: {:#?}", sq);
-                    sq
-                })
-            }),
+            square
+                .file
+                .checked_sub(1)
+                .and_then(|f| square.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
         ]
         .iter()
         .filter_map(|&x| x)
@@ -496,6 +492,7 @@ impl Board {
         }
     }
     fn update_king_attacks(&mut self, square: Square, p: Player) {
+        log::info!("Updating king attacks: {}", square);
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
@@ -578,8 +575,6 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(x, -x))),
             self.to_attack((1..8).map(|x| square.translate(x, x))),
         ];
-        log::info!("updateing {:#?} {}", p, square);
-        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -604,8 +599,8 @@ impl Board {
             self.to_attack((1..8).map(|x| square.translate(-x, 0))),
             self.to_attack((1..8).map(|x| square.translate(0, -x))),
         ];
-        self.attacks.clear_pins_by(p, square);
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
+            log::info!("ret: {}", square);
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
                 Player::Black => self.attacks.black_pins.insert(pin, square),
@@ -696,10 +691,11 @@ impl Board {
         .filter_map(|&x| x)
         .collect();
         ret.append(&mut bishop);
-        let pins = match self.turn {
+        let pins = match self.get_piece(sq).unwrap().owner {
             Player::White => &mut self.attacks.black_pins,
             Player::Black => &mut self.attacks.white_pins,
         };
+        log::info!("Clearing all pins");
         pins.clear();
         for (pinner, pinned) in ret {
             pins.insert(pinned, pinner);
@@ -764,6 +760,6 @@ impl Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPPNNnPP/R1BQK2R b KQ - 2 8")
+        Board::new("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
     }
 }
