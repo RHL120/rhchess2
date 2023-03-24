@@ -629,7 +629,7 @@ impl Board {
                     pinned = Some(i);
                 } else {
                     pinned?;
-                    if kind == piece.kind || kind == PieceKind::Queen {
+                    if kind == piece.kind || piece.kind == PieceKind::Queen {
                         pinner = Some(i);
                     }
                     break;
