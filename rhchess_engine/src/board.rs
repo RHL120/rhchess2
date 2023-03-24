@@ -93,7 +93,7 @@ impl Square {
             None
         }
     }
-    pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<Vec<Square>> {
+    pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<Line> {
         diffs
             .iter()
             .map(|&(df, dr)| {
@@ -103,7 +103,7 @@ impl Square {
             })
             .collect()
     }
-    pub fn between(self, other: Self) -> Vec<Square> {
+    pub fn between(self, other: Self) -> Line {
         let rank_diff = (other.rank as i32 - self.rank as i32).signum();
         let file_diff = (other.file as i32 - self.file as i32).signum();
         (1..8)
@@ -118,6 +118,8 @@ impl Square {
             .collect()
     }
 }
+
+pub type Line = Vec<Square>;
 
 impl std::fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -410,7 +412,7 @@ impl Board {
             _ => unreachable!(),
         }
     }
-    fn first_piece_is(&self, rng: &Vec<Square>, kinds: &[PieceKind]) -> Option<(Piece, Square)> {
+    fn first_piece_is(&self, rng: &Line, kinds: &[PieceKind]) -> Option<(Piece, Square)> {
         for &i in rng {
             if let Some(piece) = self.get_piece(i) {
                 if kinds.contains(&piece.kind) {
@@ -481,7 +483,7 @@ impl Board {
         }
         self.on_king_update_pins(square)
     }
-    fn to_attack(&self, lines: Vec<Vec<Square>>) -> Vec<HashSet<Square>> {
+    fn to_attack(&self, lines: Vec<Line>) -> Vec<HashSet<Square>> {
         let mut ret = Vec::new();
         for line in lines {
             let mut h = HashSet::new();
@@ -614,7 +616,7 @@ impl Board {
     }
     fn pinner_pinned(
         &self,
-        rng: &Vec<Square>,
+        rng: &Line,
         kind: PieceKind,
         color: Player,
     ) -> Option<(Square, Square)> {
