@@ -5,34 +5,47 @@ use std::collections::HashSet;
 /// The kind of a chess peice
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceKind {
+    ///The pawn
     Pawn,
+    ///The rook
     Rook,
+    ///The knight
     Knight,
+    ///The bishop
     Bishop,
+    ///The queen
     Queen,
+    ///The king
     King,
 }
 
 /// The 2 possible players
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Player {
+    /// white
     White,
+    /// black
     Black,
 }
 
 impl Player {
+    /// The first return value is the rank that the pawns start at for `self`.
+    /// The second is the direction in which they move
     pub fn pawn_info(&self) -> (u8, i32) {
         match self {
             Player::White => (1, 1),
             Player::Black => (6, -1),
         }
     }
+    /// For self == White, return is Black
+    /// For self == Black, return is White
     pub fn opposite(&self) -> Self {
         match self {
             Player::White => Player::Black,
             Player::Black => Player::White,
         }
     }
+    /// Returns the rank on which the king starts on
     pub fn king_rank(&self) -> u8 {
         match self {
             Player::White => 0,
@@ -44,10 +57,13 @@ impl Player {
 /// The piece itself
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Piece {
+    ///The kind of the piece
     pub kind: PieceKind,
+    ///The piece's color
     pub owner: Player,
 }
 
+/// A board square
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {
     pub rank: u8,
@@ -55,6 +71,7 @@ pub struct Square {
 }
 
 impl Square {
+    /// Creates a new square
     pub fn new(file: u8, rank: u8) -> Option<Square> {
         if file < 8 && rank < 8 {
             Some(Square { file, rank })
@@ -62,15 +79,18 @@ impl Square {
             None
         }
     }
+    /// Creates a new square where file and rank are known to be less than 8
     pub fn new_unsafe(file: u8, rank: u8) -> Square {
         Square { file, rank }
     }
+    /// Creates a new square from an index where idx is known to be less than 64
     pub fn from_idx_unsafe(idx: u8) -> Square {
         Square {
             rank: idx / 8,
             file: idx % 8,
         }
     }
+    /// Creates a new square from an index where idx is known to be less than 64
     pub fn from_idx(idx: u8) -> Option<Square> {
         if idx < 64 {
             Some(Square {
@@ -81,6 +101,7 @@ impl Square {
             None
         }
     }
+    /// Returns a new square that is Square {file: self.file + file, rank: self.rank + rank}
     pub fn translate(self, file: i32, rank: i32) -> Option<Square> {
         let file = self.file as i32 + file;
         let rank = self.rank as i32 + rank;
@@ -93,6 +114,7 @@ impl Square {
             None
         }
     }
+    /// Generates a line that passes through square
     pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<Line> {
         diffs
             .iter()
@@ -103,6 +125,7 @@ impl Square {
             })
             .collect()
     }
+    /// Generates the line between self and other starting from self
     pub fn between(self, other: Self) -> Line {
         let rank_diff = (other.rank as i32 - self.rank as i32).signum();
         let file_diff = (other.file as i32 - self.file as i32).signum();
@@ -119,6 +142,7 @@ impl Square {
     }
 }
 
+/// A list of squares that should be aligned
 pub type Line = Vec<Square>;
 
 impl std::fmt::Display for Square {
@@ -135,10 +159,15 @@ impl std::fmt::Debug for Square {
 }
 
 #[derive(Debug, Clone)]
+/// What players have the right to castle their king and from what side
 pub struct CastlingRights {
+    /// white can castle queen side
     pub white_queen: bool,
+    /// white can castle king side
     pub white_king: bool,
+    /// black can castle queen side
     pub black_queen: bool,
+    /// black can castle king side
     pub black_king: bool,
 }
 
@@ -177,15 +206,16 @@ pub struct Attacks {
     /// The key contains the squares that black attacks and the value contains
     /// the squares from which black attacks them
     pub black_attacks: HashMap<Square, HashSet<Square>>,
-    /// The key is a square that contains a white piece pinned by a black piece
-    /// found on the value
+    /// The key contains squares that white pins and the value contains the square
+    /// that contains the pinner
     pub white_pins: HashMap<Square, Square>,
-    /// The key is a square that contains a black piece pinned by a black piece
-    /// found on the value
+    /// The key contains squares that black pins and the value contains the square
+    /// that contains the pinner
     pub black_pins: HashMap<Square, Square>,
 }
 
 impl Attacks {
+    /// Removes all attacks from `square`
     fn clear_attacks_by(&mut self, square: Square, player: Player) {
         let attacks = match player {
             Player::White => &mut self.white_attacks,
@@ -202,12 +232,14 @@ impl Attacks {
             attacks.remove(&i);
         }
     }
+    /// Get's the attacks done by the player `p`
     pub fn get_attacks_for(&self, p: Player, s: Square) -> Option<&HashSet<Square>> {
         match p {
             Player::White => self.white_attacks.get(&s),
             Player::Black => self.black_attacks.get(&s),
         }
     }
+    /// Checks if the player `p` attacks the square `s`
     pub fn does_attack(&self, p: Player, s: Square) -> bool {
         self.get_attacks_for(p, s).is_some()
     }
@@ -218,6 +250,7 @@ impl Attacks {
             Player::Black => self.white_pins.get(&s).copied(),
         }
     }
+    /// Clear all the squares pinned by the player `p`
     fn clear_pins_by(&mut self, p: Player, s: Square) {
         let pins = match p {
             Player::White => &mut self.white_pins,
@@ -254,18 +287,22 @@ pub struct Board {
 }
 
 impl Board {
+    /// Gets the king position for the current player (`self.turn`)
     pub fn current_king(&self) -> Square {
         match self.turn {
             Player::White => self.white_pos,
             Player::Black => self.black_pos,
         }
     }
+    /// Gets the piece found on the square `s`
     pub fn get_piece(&self, s: Square) -> Option<Piece> {
         self.positions[(s.rank * 8 + s.file) as usize]
     }
+    /// Set the square `s` to the piece `p`
     fn set_piece(&mut self, s: Square, p: Option<Piece>) {
         self.positions[(s.rank * 8 + s.file) as usize] = p;
     }
+    /// Updates the `self.castling_rights` based on the move `m`
     fn update_castling(&mut self, m: moves::Move) {
         match m {
             moves::Move::Move(_, dst, src) => {
@@ -305,6 +342,7 @@ impl Board {
             _ => (),
         }
     }
+    /// Applies the move `m` on the board
     pub fn make_move(&mut self, m: moves::Move) {
         self.update_castling(m);
         match m {
@@ -390,9 +428,11 @@ impl Board {
             }
         };
     }
+    /// Moves to the next turn
     pub fn switch_player(&mut self) {
         self.turn = self.turn.opposite();
     }
+    /// Checks if the move `m` results in a promotion
     pub fn is_promotion(&self, m: moves::Move) -> bool {
         match m {
             moves::Move::Move(_, dst, src) => match self.get_piece(src).unwrap().kind {
@@ -402,6 +442,7 @@ impl Board {
             _ => false,
         }
     }
+    /// Makes the promoition based on `m` to the kind `kind`
     pub fn make_promotion(&mut self, m: moves::Move, kind: PieceKind) {
         match m {
             moves::Move::Move(_, dst, _) => {
@@ -415,11 +456,12 @@ impl Board {
             _ => unreachable!(),
         }
     }
-    fn first_piece_is(&self, rng: &Line, kinds: &[PieceKind]) -> Option<(Piece, Square)> {
+    /// Checks if the first piece in the line `rng` is one of `kinds`
+    fn first_piece_is(&self, rng: &Line, kinds: &[PieceKind]) -> Option<(Square, Piece)> {
         for &i in rng {
             if let Some(piece) = self.get_piece(i) {
                 if kinds.contains(&piece.kind) {
-                    return Some((piece, i));
+                    return Some((i, piece));
                 } else {
                     return None;
                 }
@@ -427,7 +469,9 @@ impl Board {
         }
         None
     }
-    fn surrounding_pieces(&mut self, sq: Square) -> Vec<(Piece, Square)> {
+    /// Returns all of the pieces and squares that are effected by a move by
+    /// the square sq
+    fn surrounding_pieces(&mut self, sq: Square) -> Vec<(Square, Piece)> {
         use moves::{BISHOP_TRANSLATES, KING_TRANSLATES, KNIGHT_TRANSLATES, ROOK_TRANSLATES};
         use PieceKind::{Bishop, King, Knight, Queen, Rook};
         let mut ret = Vec::new();
@@ -448,7 +492,7 @@ impl Board {
                         let sq = sq.translate(df, dr)?;
                         self.get_piece(sq).and_then(|p| {
                             if p.kind == kind {
-                                Some((p, sq))
+                                Some((sq, p))
                             } else {
                                 None
                             }
@@ -459,6 +503,7 @@ impl Board {
         }
         ret
     }
+    /// Updatest the attacks of the knight on the square `square`
     fn update_knight_attacks(&mut self, square: Square, p: Player) {
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
@@ -472,6 +517,7 @@ impl Board {
             r.get_mut(&i).unwrap().insert(square);
         }
     }
+    /// Updatest the attacks of the king on the square `square`
     fn update_king_attacks(&mut self, square: Square, p: Player) {
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
@@ -486,7 +532,8 @@ impl Board {
         }
         self.on_king_update_pins(square)
     }
-    fn to_attack(&self, lines: Vec<Line>) -> Vec<HashSet<Square>> {
+    /// Filters out the attacked squares from lines
+    fn to_attacks(&self, lines: Vec<Line>) -> Vec<HashSet<Square>> {
         let mut ret = Vec::new();
         for line in lines {
             let mut h = HashSet::new();
@@ -503,6 +550,7 @@ impl Board {
         }
         ret
     }
+    /// Gets the pinner square (if there is one)
     fn get_pin(
         &self,
         sq: Square,
@@ -539,8 +587,9 @@ impl Board {
             None
         }
     }
+    /// Updates the attacks for the bishop found on `square`
     fn update_bishop_attacks(&mut self, square: Square, p: Player) {
-        let attacks = self.to_attack(square.generate_lines(&moves::BISHOP_TRANSLATES));
+        let attacks = self.to_attacks(square.generate_lines(&moves::BISHOP_TRANSLATES));
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -558,8 +607,9 @@ impl Board {
             }
         }
     }
+    /// Updates the attacks for the rook found on `square`
     fn update_rook_attacks(&mut self, square: Square, p: Player) {
-        let attacks = self.to_attack(square.generate_lines(&[(1, 0), (0, 1), (-1, 0), (0, -1)]));
+        let attacks = self.to_attacks(square.generate_lines(&[(1, 0), (0, 1), (-1, 0), (0, -1)]));
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -577,6 +627,7 @@ impl Board {
             }
         }
     }
+    /// Updates the attacks for the pawn found on `square`
     fn update_pawn_attacks(&mut self, square: Square, p: Player) {
         let r = match p {
             Player::White => &mut self.attacks.white_attacks,
@@ -590,10 +641,12 @@ impl Board {
             }
         }
     }
+    /// Updates the attacks for the queen found on `square`
     fn update_queen_attacks(&mut self, square: Square, p: Player) {
         self.update_rook_attacks(square, p);
         self.update_bishop_attacks(square, p);
     }
+    /// Updates the attacks for the piece found on `square`
     fn calculate_piece_attack(&mut self, square: Square, p: Piece) {
         let pl = p.owner;
         match p.kind {
@@ -672,11 +725,11 @@ impl Board {
                 self.attacks.clear_pins_by(self.turn, src);
                 let mut diff = self.surrounding_pieces(src);
                 diff.append(&mut self.surrounding_pieces(dst));
-                diff.push((self.get_piece(dst).unwrap(), dst));
+                diff.push((dst, self.get_piece(dst).unwrap()));
                 if let Some((capt, sq)) = captured {
                     self.attacks.clear_attacks_by(sq, capt.owner);
                 }
-                for (piece, sq) in diff {
+                for (sq, piece) in diff {
                     self.attacks.clear_attacks_by(sq, piece.owner);
                     self.calculate_piece_attack(sq, piece);
                 }
@@ -705,10 +758,12 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
+        log::info!("{:#?}", self.attacks);
     }
 }
 
 impl Board {
+    /// Creates a new board from a fen string
     pub fn new(fen: &str) -> Self {
         let mut ret = fen::parse_fen(fen).unwrap();
         for i in 0..64 {
