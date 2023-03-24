@@ -20,7 +20,7 @@ pub fn Board() -> Html {
             {
                 (0..64).map(|idx| {
                     let board = ref_board.clone();
-                    let square = board::Square::new(idx % 8, 7 - (idx / 8)).unwrap();
+                    let square = board::Square::new_unsafe(idx % 8, 7 - (idx / 8));
                     let piece = board.lock().unwrap().get_piece(square);
                     let color = if  (idx % 8 + idx / 8) % 2 == 0 {
                         square::Color::Light
@@ -40,8 +40,8 @@ pub fn Board() -> Html {
                                     board::Player::White => 0,
                                     board::Player::Black => 7,
                                 };
-                                (king_side && square == board::Square::new(6, rank).unwrap())
-                                    || (!king_side && square == board::Square::new(2, rank).unwrap())
+                                (king_side && square == board::Square::new_unsafe(6, rank))
+                                    || (!king_side && square == board::Square::new_unsafe(2, rank))
                             }
                         }
                     };
