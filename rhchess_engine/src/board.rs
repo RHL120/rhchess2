@@ -263,6 +263,9 @@ impl Board {
     pub fn get_piece(&self, s: Square) -> Option<Piece> {
         self.positions[(s.rank * 8 + s.file) as usize]
     }
+    fn set_piece(&mut self, s: Square, p: Option<Piece>) {
+        self.positions[(s.rank * 8 + s.file) as usize] = p;
+    }
     fn update_castling(&mut self, m: moves::Move) {
         match m {
             moves::Move::Move(_, dst, src) => {
@@ -306,7 +309,7 @@ impl Board {
         self.update_castling(m);
         match m {
             moves::Move::Move(_, dst, src) => {
-                let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
+                let piece = self.get_piece(src).unwrap();
                 if piece.kind == PieceKind::King {
                     match self.turn {
                         Player::Black => self.black_pos = dst,
@@ -323,19 +326,19 @@ impl Board {
                 } else {
                     None
                 };
-                self.positions[(src.rank * 8 + src.file) as usize] = None;
-                let capt = self.positions[(dst.rank * 8 + dst.file) as usize];
-                self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
+                self.set_piece(src, None);
+                let capt = self.get_piece(dst);
+                self.set_piece(dst, Some(piece));
                 self.update_attacks(m, capt.map(|x| (x, dst)))
             }
             moves::Move::EnPassent(src) => {
-                let piece = self.positions[(src.rank * 8 + src.file) as usize].unwrap();
-                self.positions[(src.rank * 8 + src.file) as usize] = None;
+                let piece = self.get_piece(src).unwrap();
+                self.set_piece(src, None);
                 let en_passant = self.en_passant.unwrap();
                 let dst = en_passant.translate(0, piece.owner.pawn_info().1).unwrap();
-                let capt = self.positions[(en_passant.rank * 8 + en_passant.file) as usize];
-                self.positions[(dst.rank * 8 + dst.file) as usize] = Some(piece);
-                self.positions[(en_passant.rank * 8 + en_passant.file) as usize] = None;
+                let capt = self.get_piece(en_passant);
+                self.set_piece(dst, Some(piece));
+                self.set_piece(en_passant, None);
                 self.update_attacks(m, capt.map(|x| (x, en_passant)));
                 self.en_passant = None;
             }
@@ -406,7 +409,7 @@ impl Board {
                     kind,
                     owner: self.turn,
                 };
-                self.positions[(8 * dst.rank + dst.file) as usize] = Some(p);
+                self.set_piece(dst, Some(p));
                 self.calculate_piece_attack(dst, p);
             }
             _ => unreachable!(),
