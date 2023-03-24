@@ -677,11 +677,23 @@ impl Board {
     fn calculate_piece_attack(&mut self, square: Square, p: Piece) {
         let pl = p.owner;
         match p.kind {
-            PieceKind::Rook => self.update_rook_attacks(square, pl),
-            PieceKind::Queen => self.update_queen_attacks(square, pl),
-            PieceKind::Bishop => self.update_bishop_attacks(square, pl),
+            PieceKind::Rook => {
+                self.attacks.clear_pins_by(p.owner, square);
+                self.update_rook_attacks(square, pl)
+            }
+            PieceKind::Queen => {
+                self.attacks.clear_pins_by(p.owner, square);
+                self.update_queen_attacks(square, pl)
+            }
+            PieceKind::Bishop => {
+                self.attacks.clear_pins_by(p.owner, square);
+                self.update_bishop_attacks(square, pl)
+            }
             PieceKind::Knight => self.update_knight_attacks(square, pl),
-            PieceKind::King => self.update_king_attacks(square, pl),
+            PieceKind::King => {
+                self.on_king_update_pins(square);
+                self.update_king_attacks(square, pl)
+            }
             PieceKind::Pawn => self.update_pawn_attacks(square, pl),
         };
     }
@@ -787,7 +799,6 @@ impl Board {
                 }
                 for (piece, sq) in diff {
                     self.attacks.clear_attacks_by(sq, piece.owner);
-                    self.attacks.clear_pins_by(piece.owner, sq);
                     self.calculate_piece_attack(sq, piece);
                 }
             }
