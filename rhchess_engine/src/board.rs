@@ -99,6 +99,18 @@ impl Square {
             .map(|&(df, dr)| (1..8).map_while(move |x| self.translate(df * x, dr * x)))
             .collect()
     }
+    pub fn between(self, other: Self) -> impl Iterator<Item = Square> {
+        let rank_diff = (other.rank as i32 - self.rank as i32).signum();
+        let file_diff = (other.file as i32 - self.file as i32).signum();
+        (1..8).map_while(move |x| {
+            let sq = self.translate(file_diff * x, rank_diff * x)?;
+            if sq == other {
+                None
+            } else {
+                Some(sq)
+            }
+        })
+    }
 }
 
 impl std::fmt::Display for Square {
@@ -554,19 +566,20 @@ impl Board {
         }
         self.on_king_update_pins(square)
     }
-    fn to_attack(&self, line: impl Iterator<Item = Option<Square>>) -> HashSet<Square> {
-        let mut ret = HashSet::new();
-        for i in line {
-            match i {
-                None => break,
-                Some(s) => match self.get_piece(s) {
-                    None => ret.insert(s),
+    fn to_attack(&self, lines: Vec<impl Iterator<Item = Square>>) -> Vec<HashSet<Square>> {
+        let mut ret = Vec::new();
+        for line in lines {
+            let mut h = HashSet::new();
+            for square in line {
+                match self.get_piece(square) {
+                    None => h.insert(square),
                     Some(_) => {
-                        ret.insert(s);
+                        h.insert(square);
                         break;
                     }
-                },
-            };
+                };
+            }
+            ret.push(h)
         }
         ret
     }
@@ -607,12 +620,7 @@ impl Board {
         }
     }
     fn update_bishop_attacks(&mut self, square: Square, p: Player) {
-        let attacks = [
-            self.to_attack((1..8).map(|x| square.translate(-x, -x))),
-            self.to_attack((1..8).map(|x| square.translate(-x, x))),
-            self.to_attack((1..8).map(|x| square.translate(x, -x))),
-            self.to_attack((1..8).map(|x| square.translate(x, x))),
-        ];
+        let attacks = self.to_attack(square.generate_lines(&[(-1, -1), (-1, 1), (1, -1), (1, 1)]));
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -631,12 +639,7 @@ impl Board {
         }
     }
     fn update_rook_attacks(&mut self, square: Square, p: Player) {
-        let attacks = [
-            self.to_attack((1..8).map(|x| square.translate(x, 0))),
-            self.to_attack((1..8).map(|x| square.translate(0, x))),
-            self.to_attack((1..8).map(|x| square.translate(-x, 0))),
-            self.to_attack((1..8).map(|x| square.translate(0, -x))),
-        ];
+        let attacks = self.to_attack(square.generate_lines(&[(1, 0), (0, 1), (-1, 0), (0, -1)]));
         if let Some(pin) = self.get_pin(square, |x, y| x == 0 || y == 0, p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -812,6 +815,7 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
+        log::info!("{:#?}", self.attacks);
     }
 }
 

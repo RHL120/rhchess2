@@ -360,18 +360,7 @@ fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
 }
 
 fn blocks(dst: Square, attacker: Square, attacked: Square) -> bool {
-    let rank_diff = (attacker.rank as i32 - attacked.rank as i32).signum();
-    let file_diff = (attacker.file as i32 - attacked.file as i32).signum();
-    (1..8)
-        .map_while(|x| {
-            let sq = attacked.translate(file_diff * x, rank_diff * x)?;
-            if sq == attacker {
-                None
-            } else {
-                Some(sq)
-            }
-        })
-        .any(|x| x == dst)
+    attacked.between(attacker).any(|x| x == dst)
 }
 
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
@@ -381,6 +370,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
         .get_attacks_for(board.turn.opposite(), king_pos);
     // the king must get out of a check
     if let Some(king_attacks) = king_attacks {
+        log::info!("{:#?}", king_attacks);
         if king_attacks.len() >= 2 {
             //There is a double check, the king must move
             if src == king_pos {
@@ -422,6 +412,7 @@ pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
                 Move::Move(_, dst, _) => {
                     let apk = board.get_piece(attacker).unwrap().kind;
                     //The attacker can be captured
+                    log::info!("{}, {:#?}", attacker, apk);
                     if dst == attacker || (apk != Knight && blocks(dst, attacker, king_pos)) {
                         Some(mv)
                     } else {
