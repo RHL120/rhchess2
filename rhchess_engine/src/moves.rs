@@ -11,32 +11,56 @@ pub enum Move {
     Move(bool, Square, Square),
 }
 
+pub const BISHOP_TRANSLATES: [(i32, i32); 4] = [(-1, 1), (1, -1), (-1, -1), (1, 1)];
+pub const ROOK_TRANSLATES: [(i32, i32); 4] = [(1, 0), (0, 1), (-1, 0), (0, -1)];
+pub const KNIGHT_TRANSLATES: [(i32, i32); 8] = [
+    (1, 2),
+    (-1, 2),
+    (-2, 1),
+    (-2, -1),
+    (-1, -2),
+    (1, -2),
+    (2, -1),
+    (2, 1),
+];
+pub const QUEEN_TRANSLATES: [(i32, i32); 8] = [
+    (1, 0),
+    (0, 1),
+    (-1, 0),
+    (0, -1),
+    (-1, 1),
+    (1, -1),
+    (-1, -1),
+    (1, 1),
+];
+pub const KING_TRANSLATES: [(i32, i32); 8] = [
+    (1, 0),
+    (-1, 0),
+    (1, 1),
+    (1, -1),
+    (0, -1),
+    (0, 1),
+    (-1, 1),
+    (-1, -1),
+];
+
 fn knight(board: &Board, src: Square) -> Vec<Move> {
-    [
-        (1, 2),
-        (-1, 2),
-        (-2, 1),
-        (-2, -1),
-        (-1, -2),
-        (1, -2),
-        (2, -1),
-        (2, 1),
-    ]
-    .iter()
-    .filter_map(|&(fd, rd)| {
-        let x = src.translate(fd, rd)?;
-        match board.get_piece(x) {
-            Some(piece) => {
-                if piece.owner != board.turn {
-                    Some(Move::Move(false, x, src))
-                } else {
-                    None
+    KNIGHT_TRANSLATES
+        .iter()
+        .filter_map(|&(fd, rd)| {
+            let x = src.translate(fd, rd)?;
+            match board.get_piece(x) {
+                Some(piece) => {
+                    if piece.owner != board.turn {
+                        Some(Move::Move(false, x, src))
+                    } else {
+                        None
+                    }
                 }
+                None => Some(Move::Move(true, x, src)),
             }
-            None => Some(Move::Move(true, x, src)),
-        }
-    })
-    .collect()
+        })
+        .collect()
 }
 
 fn sliders(board: &Board, src: Square, diffs: &[(i32, i32)]) -> Vec<Move> {
@@ -76,6 +100,7 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
         .map_while(to_move)
         .collect()
     } else {
+        //Nope
         [src.translate(0, rank_multiple)]
             .iter()
             .map_while(to_move)
@@ -109,20 +134,10 @@ fn pawn(board: &Board, src: Square) -> Vec<Move> {
 }
 
 fn king(board: &Board, src: Square) -> Vec<Move> {
-    let moves = [
-        src.translate(1, 0),
-        src.translate(-1, 0),
-        src.translate(1, 1),
-        src.translate(1, -1),
-        src.translate(0, -1),
-        src.translate(0, 1),
-        src.translate(-1, 1),
-        src.translate(-1, -1),
-    ];
-    let mut moves: Vec<Move> = moves
+    let mut moves: Vec<Move> = KING_TRANSLATES
         .iter()
-        .filter_map(|&sqr| {
-            let sqr = sqr?;
+        .filter_map(|&(fd, rd)| {
+            let sqr = src.translate(fd, rd)?;
             let piece = board.get_piece(sqr);
             match piece {
                 Some(piece) => {
@@ -243,7 +258,7 @@ fn legal_bishop(board: &Board, src: Square) -> Vec<Move> {
             Vec::new()
         }
     } else {
-        sliders(board, src, &[(-1, 1), (1, -1), (-1, -1), (1, 1)])
+        sliders(board, src, &BISHOP_TRANSLATES)
     }
 }
 
@@ -263,26 +278,13 @@ fn legal_rook(board: &Board, src: Square) -> Vec<Move> {
             Vec::new()
         }
     } else {
-        sliders(board, src, &[(1, 0), (0, 1), (-1, 0), (0, -1)])
+        sliders(board, src, &ROOK_TRANSLATES)
     }
 }
 
 fn legal_queen(board: &Board, src: Square) -> Vec<Move> {
     if board.attacks.get_pinner(board.turn, src).is_none() {
-        sliders(
-            board,
-            src,
-            &[
-                (1, 0),
-                (0, 1),
-                (-1, 0),
-                (0, -1),
-                (-1, 1),
-                (1, -1),
-                (-1, -1),
-                (1, 1),
-            ],
-        )
+        sliders(board, src, &QUEEN_TRANSLATES)
     } else {
         let rook = legal_rook(board, src);
         if rook.is_empty() {
@@ -360,7 +362,7 @@ fn legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {
 }
 
 fn blocks(dst: Square, attacker: Square, attacked: Square) -> bool {
-    attacked.between(attacker).any(|x| x == dst)
+    attacked.between(attacker).iter().any(|&x| x == dst)
 }
 
 pub fn get_legal_moves(board: &Board, src: Square) -> Option<Vec<Move>> {

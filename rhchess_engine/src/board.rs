@@ -93,23 +93,29 @@ impl Square {
             None
         }
     }
-    pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<impl Iterator<Item = Square>> {
+    pub fn generate_lines(self, diffs: &[(i32, i32)]) -> Vec<Vec<Square>> {
         diffs
             .iter()
-            .map(|&(df, dr)| (1..8).map_while(move |x| self.translate(df * x, dr * x)))
+            .map(|&(df, dr)| {
+                (1..8)
+                    .map_while(move |x| self.translate(df * x, dr * x))
+                    .collect()
+            })
             .collect()
     }
-    pub fn between(self, other: Self) -> impl Iterator<Item = Square> {
+    pub fn between(self, other: Self) -> Vec<Square> {
         let rank_diff = (other.rank as i32 - self.rank as i32).signum();
         let file_diff = (other.file as i32 - self.file as i32).signum();
-        (1..8).map_while(move |x| {
-            let sq = self.translate(file_diff * x, rank_diff * x)?;
-            if sq == other {
-                None
-            } else {
-                Some(sq)
-            }
-        })
+        (1..8)
+            .map_while(move |x| {
+                let sq = self.translate(file_diff * x, rank_diff * x)?;
+                if sq == other {
+                    None
+                } else {
+                    Some(sq)
+                }
+            })
+            .collect()
     }
 }
 
@@ -404,12 +410,8 @@ impl Board {
             _ => unreachable!(),
         }
     }
-    fn first_piece_is(
-        &self,
-        rng: impl Iterator<Item = Square>,
-        kinds: &[PieceKind],
-    ) -> Option<(Piece, Square)> {
-        for i in rng {
+    fn first_piece_is(&self, rng: &Vec<Square>, kinds: &[PieceKind]) -> Option<(Piece, Square)> {
+        for &i in rng {
             if let Some(piece) = self.get_piece(i) {
                 if kinds.contains(&piece.kind) {
                     return Some((piece, i));
@@ -421,84 +423,35 @@ impl Board {
         None
     }
     fn surrounding_pieces(&mut self, sq: Square) -> Vec<(Piece, Square)> {
-        use PieceKind::{Bishop, Queen, Rook};
-        let mut ret: Vec<(Piece, Square)> = [
-            self.first_piece_is((1..8).map_while(|x| sq.translate(x, 0)), &[Rook, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(0, x)), &[Rook, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, 0)), &[Rook, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(0, -x)), &[Rook, Queen]),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
-        let mut bishop = [
-            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, -x)), &[Bishop, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(-x, x)), &[Bishop, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(x, -x)), &[Bishop, Queen]),
-            self.first_piece_is((1..8).map_while(|x| sq.translate(x, x)), &[Bishop, Queen]),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
-        let mut knight = [
-            sq.rank
-                .checked_sub(2)
-                .and_then(|x| Square::new(sq.file + 1, x)),
-            sq.rank
-                .checked_sub(1)
-                .and_then(|x| Square::new(sq.file + 2, x)),
-            Square::new(sq.file + 2, sq.rank + 1),
-            Square::new(sq.file + 1, sq.rank + 2),
-            sq.file
-                .checked_sub(1)
-                .and_then(|x| Square::new(x, sq.rank + 2)),
-            sq.file
-                .checked_sub(2)
-                .and_then(|x| Square::new(x, sq.rank + 1)),
-            sq.file
-                .checked_sub(2)
-                .and_then(|f| sq.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
-            sq.file
-                .checked_sub(1)
-                .and_then(|f| sq.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
-        ]
-        .iter()
-        .filter_map(|&sq| {
-            let sq = sq?;
-            self.get_piece(sq).and_then(|p| {
-                if p.kind == PieceKind::Knight {
-                    Some((p, sq))
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-        let mut king = [
-            sq.translate(1, 0),
-            sq.translate(-1, 0),
-            sq.translate(1, 1),
-            sq.translate(1, -1),
-            sq.translate(0, -1),
-            sq.translate(0, 1),
-            sq.translate(-1, 1),
-            sq.translate(-1, -1),
-        ]
-        .iter()
-        .filter_map(|&sq| {
-            let sq = sq?;
-            self.get_piece(sq).and_then(|p| {
-                if p.kind == PieceKind::King {
-                    Some((p, sq))
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-        ret.append(&mut bishop);
-        ret.append(&mut knight);
-        ret.append(&mut king);
+        use moves::{BISHOP_TRANSLATES, KING_TRANSLATES, KNIGHT_TRANSLATES, ROOK_TRANSLATES};
+        use PieceKind::{Bishop, King, Knight, Queen, Rook};
+        let mut ret = Vec::new();
+        for (translates, kind) in [(ROOK_TRANSLATES, Rook), (BISHOP_TRANSLATES, Bishop)] {
+            let mut pieces = translates
+                .iter()
+                .filter_map(|&ds| {
+                    self.first_piece_is(sq.generate_lines(&[ds]).first().unwrap(), &[Queen, kind])
+                })
+                .collect();
+            ret.append(&mut pieces);
+        }
+        for (translates, kind) in [(KNIGHT_TRANSLATES, Knight), (KING_TRANSLATES, King)] {
+            let mut pieces =
+                translates
+                    .iter()
+                    .filter_map(|&(df, dr)| {
+                        let sq = sq.translate(df, dr)?;
+                        self.get_piece(sq).and_then(|p| {
+                            if p.kind == kind {
+                                Some((p, sq))
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .collect();
+            ret.append(&mut pieces);
+        }
         ret
     }
     fn update_knight_attacks(&mut self, square: Square, p: Player) {
@@ -506,37 +459,9 @@ impl Board {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
         };
-        let attacks: Vec<Square> = [
-            square
-                .rank
-                .checked_sub(2)
-                .and_then(|x| Square::new(square.file + 1, x)),
-            square
-                .rank
-                .checked_sub(1)
-                .and_then(|x| Square::new(square.file + 2, x)),
-            Square::new(square.file + 2, square.rank + 1),
-            Square::new(square.file + 1, square.rank + 2),
-            square
-                .file
-                .checked_sub(1)
-                .and_then(|x| Square::new(x, square.rank + 2)),
-            square
-                .file
-                .checked_sub(2)
-                .and_then(|x| Square::new(x, square.rank + 1)),
-            square
-                .file
-                .checked_sub(2)
-                .and_then(|f| square.rank.checked_sub(1).and_then(|r| Square::new(f, r))),
-            square
-                .file
-                .checked_sub(1)
-                .and_then(|f| square.rank.checked_sub(2).and_then(|r| Square::new(f, r))),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
+        let attacks = moves::KNIGHT_TRANSLATES
+            .iter()
+            .filter_map(|&(df, dr)| square.translate(df, dr));
         for i in attacks {
             r.entry(i).or_insert_with(HashSet::new);
             r.get_mut(&i).unwrap().insert(square);
@@ -547,26 +472,16 @@ impl Board {
             Player::White => &mut self.attacks.white_attacks,
             Player::Black => &mut self.attacks.black_attacks,
         };
-        let attacks: Vec<Square> = [
-            square.translate(1, 0),
-            square.translate(-1, 0),
-            square.translate(1, 1),
-            square.translate(1, -1),
-            square.translate(0, -1),
-            square.translate(0, 1),
-            square.translate(-1, 1),
-            square.translate(-1, -1),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
+        let attacks = moves::KING_TRANSLATES
+            .iter()
+            .filter_map(|&(df, dr)| square.translate(df, dr));
         for i in attacks {
             r.entry(i).or_insert_with(HashSet::new);
             r.get_mut(&i).unwrap().insert(square);
         }
         self.on_king_update_pins(square)
     }
-    fn to_attack(&self, lines: Vec<impl Iterator<Item = Square>>) -> Vec<HashSet<Square>> {
+    fn to_attack(&self, lines: Vec<Vec<Square>>) -> Vec<HashSet<Square>> {
         let mut ret = Vec::new();
         for line in lines {
             let mut h = HashSet::new();
@@ -620,7 +535,7 @@ impl Board {
         }
     }
     fn update_bishop_attacks(&mut self, square: Square, p: Player) {
-        let attacks = self.to_attack(square.generate_lines(&[(-1, -1), (-1, 1), (1, -1), (1, 1)]));
+        let attacks = self.to_attack(square.generate_lines(&moves::BISHOP_TRANSLATES));
         if let Some(pin) = self.get_pin(square, |x, y| x.abs() == y.abs(), p) {
             match p {
                 Player::White => self.attacks.white_pins.insert(pin, square),
@@ -699,13 +614,13 @@ impl Board {
     }
     fn pinner_pinned(
         &self,
-        rng: impl Iterator<Item = Square>,
-        kinds: &[PieceKind],
+        rng: &Vec<Square>,
+        kind: PieceKind,
         color: Player,
     ) -> Option<(Square, Square)> {
         let mut pinner = None;
         let mut pinned = None;
-        for i in rng {
+        for &i in rng {
             if let Some(piece) = self.get_piece(i) {
                 if piece.owner == color {
                     if pinned.is_some() {
@@ -714,7 +629,7 @@ impl Board {
                     pinned = Some(i);
                 } else {
                     pinned?;
-                    if kinds.contains(&piece.kind) {
+                    if kind == piece.kind || kind == PieceKind::Queen {
                         pinner = Some(i);
                     }
                     break;
@@ -724,59 +639,18 @@ impl Board {
         Some((pinner?, pinned?))
     }
     fn on_king_update_pins(&mut self, sq: Square) {
-        use PieceKind::{Bishop, Queen, Rook};
+        use moves::{BISHOP_TRANSLATES, ROOK_TRANSLATES};
+        use PieceKind::{Bishop, Rook};
         let color = self.get_piece(sq).unwrap().owner;
-        let mut ret: Vec<(Square, Square)> = [
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(x, 0)),
-                &[Rook, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(0, x)),
-                &[Rook, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(-x, 0)),
-                &[Rook, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(0, -x)),
-                &[Rook, Queen],
-                color,
-            ),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
-        let mut bishop: Vec<(Square, Square)> = [
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(-x, -x)),
-                &[Bishop, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(-x, x)),
-                &[Bishop, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(x, -x)),
-                &[Bishop, Queen],
-                color,
-            ),
-            self.pinner_pinned(
-                (1..8).map_while(|x| sq.translate(x, x)),
-                &[Bishop, Queen],
-                color,
-            ),
-        ]
-        .iter()
-        .filter_map(|&x| x)
-        .collect();
-        ret.append(&mut bishop);
+        let mut ret: Vec<(Square, Square)> = Vec::new();
+        for (translate, kind) in [(ROOK_TRANSLATES, Rook), (BISHOP_TRANSLATES, Bishop)] {
+            let mut pins = sq
+                .generate_lines(&translate)
+                .iter()
+                .filter_map(|line| self.pinner_pinned(line, kind, color))
+                .collect();
+            ret.append(&mut pins);
+        }
         let pins = match self.get_piece(sq).unwrap().owner {
             Player::White => &mut self.attacks.black_pins,
             Player::Black => &mut self.attacks.white_pins,
@@ -826,7 +700,6 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
-        log::info!("{:#?}", self.attacks);
     }
 }
 
