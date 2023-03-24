@@ -758,7 +758,6 @@ impl Board {
                 self.update_attacks(moves::Move::Move(false, dst, src), captured);
             }
         }
-        log::info!("{:#?}", self.attacks);
     }
 }
 
