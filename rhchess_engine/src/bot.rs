@@ -1,12 +1,10 @@
+use std::cmp;
+
 use crate::board;
+use crate::moves;
+use crate::moves::get_all_legal_moves;
 
-#[derive(Debug, PartialEq, Eq)]
-enum Score {
-    Normal(i32),
-    Checkmate,
-    StaleMate,
-}
-
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum GameStage {
     MiddleGame,
     EndGame,
@@ -52,20 +50,90 @@ fn piece_value(
             GameStage::EndGame => QUEEN_VALUE_END_GAME,
         },
         King => match stage {
-            GameStage::MiddleGame => todo!(),
-            GameStage::EndGame => todo!(),
+            GameStage::MiddleGame => 0,
+            GameStage::EndGame => 0,
         },
     }
 }
 
-fn evaluate(board: &board::Board, p: board::Player) -> Score {
-    use Score::*;
-    let king_pos = match p {
-        board::Player::White => board.white_pos,
-        board::Player::Black => board.black_pos,
-    };
-    if board.attacks.does_attack(p.opposite(), king_pos) {
-        return Checkmate;
+fn evaluate(board: &board::Board) -> i32 {
+    let (wv, bv) = board
+        .positions
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &p)| Some((i, p?)))
+        .fold((0, 0), |(wc, bc), (idx, piece)| match piece.owner {
+            board::Player::Black => (
+                wc,
+                bc + piece_value(
+                    board,
+                    board::Square::from_idx_unsafe(idx as u8),
+                    piece.kind,
+                    GameStage::MiddleGame,
+                ),
+            ),
+            board::Player::White => (
+                wc + piece_value(
+                    board,
+                    board::Square::from_idx_unsafe(idx as u8),
+                    piece.kind,
+                    GameStage::MiddleGame,
+                ),
+                bc,
+            ),
+        });
+    match board.turn {
+        board::Player::White => wv - bv,
+        board::Player::Black => bv - wv,
     }
-    StaleMate
+}
+
+fn search(board: &board::Board) -> Option<moves::Move> {
+    fn maxi(board: &board::Board, depth: usize) -> i32 {
+        let mut max = i32::MIN;
+        if depth == 0 {
+            return evaluate(board);
+        }
+        for i in moves::get_all_legal_moves(board) {
+            let mut board = board.clone();
+            board.make_move(i);
+            board.switch_player();
+            let score = mini(&board, depth - 1);
+            if score > max {
+                max = score;
+            }
+        }
+        max
+    }
+    fn mini(board: &board::Board, depth: usize) -> i32 {
+        let mut min = i32::MIN;
+        if depth == 0 {
+            return -evaluate(board);
+        }
+        for i in moves::get_all_legal_moves(board) {
+            let mut board = board.clone();
+            board.make_move(i);
+            board.switch_player();
+            let res = maxi(&board, depth - 1);
+            if res < min {
+                min = res;
+            }
+        }
+        min
+    }
+    moves::get_all_legal_moves(board)
+        .iter()
+        .map(|x| {
+            let mut board = board.clone();
+            board.make_move(*x);
+            board.switch_player();
+            (x, mini(&board, 3))
+        })
+        .min_by(|x, y| x.1.cmp(&y.1))
+        .map(|x| x.0)
+        .copied()
+}
+
+pub fn make_move(board: &mut board::Board) {
+    board.make_move(search(board).unwrap());
 }
