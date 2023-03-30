@@ -2,6 +2,7 @@ use super::promotion::PromotionMenu;
 use super::square;
 use super::square::Square;
 use rhchess_engine::board;
+use rhchess_engine::bot;
 use rhchess_engine::moves;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -77,11 +78,16 @@ pub fn Board() -> Html {
                                             let mut board = b2.lock().unwrap();
                                             board.make_promotion(targets[m], k);
                                             board.switch_player();
+                                            log::info!("making move");
+                                            bot::make_move(&mut board);
+                                            board.switch_player();
                                             promotion2.set(None);
                                         })))
                                     } else {
-                                        targets.set(Vec::new());
                                         b.switch_player();
+                                        bot::make_move(&mut b);
+                                        b.switch_player();
+                                        targets.set(Vec::new());
                                     }
                                 }),
                                 None => Callback::from(|_| {})
